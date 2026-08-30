@@ -1,0 +1,47 @@
+/* Dispatch — layout shell around Blueprint components. */
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; height: 100%; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+.app-root { height: 100%; display: flex; flex-direction: column; background: #1c2127; }
+.app-body { flex: 1; display: grid; grid-template-columns: 220px minmax(0, 1fr) 380px; gap: 0; min-height: 0; }
+
+.mono { font-variant-numeric: tabular-nums; font-family: ui-monospace, 'Cascadia Mono', monospace; font-size: 12px; }
+.dim { color: #abb3bf; font-size: 12px; }
+
+/* ontology rail */
+.ontology { border-right: 1px solid rgba(255,255,255,0.08); padding: 14px 12px; overflow-y: auto; }
+.rail-title { font-size: 10px; letter-spacing: 0.12em; color: #8f99a8; font-weight: 700; margin: 14px 0 8px; }
+.ontology .rail-title:first-child { margin-top: 0; }
+.otype { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 8px; }
+.otype-label { flex: 1; }
+.otype--active { outline: 1px solid rgba(72, 175, 240, 0.5); }
+.rail-note { color: #8f99a8; font-size: 11.5px; line-height: 1.5; }
+
+/* table pane */
+.table-pane { min-width: 0; overflow: auto; padding: 14px 16px; }
+.filters { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.filters-count { color: #8f99a8; font-size: 12px; margin-left: auto; }
+.ship-table { width: 100%; }
+.ship-table th { white-space: nowrap; }
+.ship-table td { vertical-align: middle; white-space: nowrap; }
+.row--selected td { background: rgba(72, 175, 240, 0.12) !important; }
+.risk-cell { min-width: 110px; }
+.risk-cell .bp6-progress-bar { height: 4px; margin-bottom: 3px; width: 70px; display: inline-block; margin-right: 8px; }
+
+/* detail pane */
+.detail { border-left: 1px solid rgba(255,255,255,0.08); padding: 14px 16px; overflow-y: auto; }
+.detail-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.detail-id { font-size: 18px; font-weight: 700; }
+.props { display: grid; gap: 6px; margin-bottom: 6px; }
+.props > div { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+.linked-card { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; margin-bottom: 8px; font-size: 13px; }
+.alert--acked { opacity: 0.55; }
+.actions-row { margin-bottom: 4px; }
+.audit { display: grid; gap: 6px; }
+.audit-row { display: flex; gap: 10px; font-size: 12.5px; line-height: 1.4; }
+
+@media (max-width: 1100px) {
+    .app-body { grid-template-columns: 64px minmax(0, 1fr) 340px; }
+    .otype-label, .rail-note, .ontology .bp6-tag { display: none; }
+}

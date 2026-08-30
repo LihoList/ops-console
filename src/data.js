@@ -1,0 +1,51 @@
+// A miniature "ontology" in the Foundry sense: object types, instances,
+// links between them, and actions that mutate state. Everything is local —
+// the point of this project is the modeling idiom, not a backend.
+
+export const OBJECT_TYPES = [
+    { key: 'shipment', label: 'Shipment', icon: 'truck', description: 'A load moving between facilities' },
+    { key: 'facility', label: 'Facility', icon: 'office', description: 'Warehouse, port or cross-dock' },
+    { key: 'alert', label: 'Alert', icon: 'warning-sign', description: 'Something that needs an operator' },
+];
+
+export const FACILITIES = [
+    { id: 'FAC-01', name: 'Rotterdam Port T3', kind: 'Port', region: 'EU-West', capacityPct: 84 },
+    { id: 'FAC-02', name: 'Duisburg Rail Hub', kind: 'Rail hub', region: 'EU-Central', capacityPct: 61 },
+    { id: 'FAC-03', name: 'Lyon Cross-dock', kind: 'Cross-dock', region: 'EU-South', capacityPct: 47 },
+    { id: 'FAC-04', name: 'Gdansk DC', kind: 'Distribution', region: 'EU-East', capacityPct: 72 },
+    { id: 'FAC-05', name: 'Madrid DC', kind: 'Distribution', region: 'EU-South', capacityPct: 55 },
+];
+
+export const INITIAL_ALERTS = [
+    { id: 'AL-101', shipmentId: 'SHP-2201', severity: 'critical', kind: 'Customs hold', detail: 'Missing HS code on 2 pallets', ageH: 6, acked: false },
+    { id: 'AL-102', shipmentId: 'SHP-2201', severity: 'warning', kind: 'Temp excursion', detail: 'Reefer +2.1°C over limit for 40 min', ageH: 11, acked: false },
+    { id: 'AL-103', shipmentId: 'SHP-2204', severity: 'warning', kind: 'ETA slip', detail: 'Driver hours cap — ETA +5h', ageH: 2, acked: false },
+    { id: 'AL-104', shipmentId: 'SHP-2207', severity: 'critical', kind: 'Route closed', detail: 'A7 closed near Lyon, no reroute set', ageH: 1, acked: false },
+    { id: 'AL-105', shipmentId: 'SHP-2210', severity: 'info', kind: 'Doc ready', detail: 'POD uploaded by carrier', ageH: 20, acked: true },
+    { id: 'AL-106', shipmentId: 'SHP-2205', severity: 'warning', kind: 'Capacity', detail: 'Destination at 84% — dock slot at risk', ageH: 4, acked: false },
+];
+
+export const INITIAL_SHIPMENTS = [
+    { id: 'SHP-2201', ref: 'PO-88412', origin: 'Shanghai', destId: 'FAC-01', mode: 'Ocean', status: 'At customs', priority: 'P1', etaH: 18, valueK: 412, riskScore: 87 },
+    { id: 'SHP-2202', ref: 'PO-88433', origin: 'Rotterdam', destId: 'FAC-02', mode: 'Rail', status: 'In transit', priority: 'P3', etaH: 9, valueK: 76, riskScore: 21 },
+    { id: 'SHP-2203', ref: 'PO-88437', origin: 'Duisburg', destId: 'FAC-04', mode: 'Road', status: 'In transit', priority: 'P2', etaH: 14, valueK: 158, riskScore: 34 },
+    { id: 'SHP-2204', ref: 'PO-88450', origin: 'Valencia', destId: 'FAC-03', mode: 'Road', status: 'Delayed', priority: 'P1', etaH: 26, valueK: 240, riskScore: 68 },
+    { id: 'SHP-2205', ref: 'PO-88461', origin: 'Gdansk', destId: 'FAC-01', mode: 'Road', status: 'In transit', priority: 'P2', etaH: 31, valueK: 95, riskScore: 55 },
+    { id: 'SHP-2206', ref: 'PO-88465', origin: 'Antwerp', destId: 'FAC-05', mode: 'Road', status: 'Loading', priority: 'P3', etaH: 44, valueK: 61, riskScore: 12 },
+    { id: 'SHP-2207', ref: 'PO-88472', origin: 'Milan', destId: 'FAC-03', mode: 'Road', status: 'Delayed', priority: 'P1', etaH: 8, valueK: 380, riskScore: 91 },
+    { id: 'SHP-2208', ref: 'PO-88476', origin: 'Rotterdam', destId: 'FAC-04', mode: 'Rail', status: 'In transit', priority: 'P3', etaH: 21, valueK: 44, riskScore: 18 },
+    { id: 'SHP-2209', ref: 'PO-88480', origin: 'Hamburg', destId: 'FAC-02', mode: 'Rail', status: 'Loading', priority: 'P2', etaH: 37, valueK: 132, riskScore: 26 },
+    { id: 'SHP-2210', ref: 'PO-88488', origin: 'Lyon', destId: 'FAC-05', mode: 'Road', status: 'Delivered', priority: 'P3', etaH: 0, valueK: 88, riskScore: 5 },
+    { id: 'SHP-2211', ref: 'PO-88491', origin: 'Barcelona', destId: 'FAC-03', mode: 'Road', status: 'In transit', priority: 'P2', etaH: 12, valueK: 205, riskScore: 41 },
+    { id: 'SHP-2212', ref: 'PO-88495', origin: 'Rotterdam', destId: 'FAC-05', mode: 'Road', status: 'In transit', priority: 'P1', etaH: 16, valueK: 310, riskScore: 49 },
+];
+
+export const STATUS_INTENT = {
+    'At customs': 'warning',
+    'Delayed': 'danger',
+    'In transit': 'primary',
+    'Loading': 'none',
+    'Delivered': 'success',
+};
+
+export const SEVERITY_INTENT = { critical: 'danger', warning: 'warning', info: 'none' };
