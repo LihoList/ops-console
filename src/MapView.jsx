@@ -2,7 +2,9 @@
 // shipments are routes colored by risk, unacked alerts float as callouts
 // anchored to their shipment's destination. Clicking anything selects the
 // object in the shared detail panel; actions there update the map live.
-import { useEffect, useRef } from 'react';
+// A layers panel on the left explains the encoding and toggles each layer.
+import { useEffect, useRef, useState } from 'react';
+import { Switch } from '@blueprintjs/core';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { IconSvgPaths16 } from '@blueprintjs/icons';
@@ -17,14 +19,13 @@ const CLIP_BOUNDS = L.latLngBounds([34.5, -11.0], [58.0, 24.5]);
 // the frame edge and mark it there — a line running off-screen reads as noise.
 function clampOrigin(from, dest) {
     if (CLIP_BOUNDS.contains(L.latLng(from))) return { point: from, clipped: false };
-    let t = 1;
     const clampAxis = (d, o, min, max) => {
         const delta = o - d;
         if (!delta) return 1;
         const lim = delta > 0 ? max : min;
         return Math.max(0, Math.min(1, (lim - d) / delta));
     };
-    t = Math.min(
+    const t = Math.min(
         clampAxis(dest[0], from[0], CLIP_BOUNDS.getSouth(), CLIP_BOUNDS.getNorth()),
         clampAxis(dest[1], from[1], CLIP_BOUNDS.getWest(), CLIP_BOUNDS.getEast()),
     );
@@ -48,11 +49,15 @@ export default function MapView({ shipments, alerts, selectedId, onSelect }) {
     const hostRef = useRef(null);
     const mapRef = useRef(null);
     const layersRef = useRef(null);
+    const [show, setShow] = useState({
+        routes: true, transit: true, facilities: true, alerts: true, origins: true,
+    });
+    const toggle = (k) => setShow(s => ({ ...s, [k]: !s[k] }));
 
     // one-time map setup
     useEffect(() => {
         const map = L.map(hostRef.current, {
-            zoomControl: true,
+            zoomControl: false,
             attributionControl: true,
             scrollWheelZoom: true,
             // half-level steps make wheel zoom feel smooth instead of jumpy
@@ -60,6 +65,7 @@ export default function MapView({ shipments, alerts, selectedId, onSelect }) {
             zoomDelta: 0.5,
             wheelPxPerZoomLevel: 90,
         });
+        L.control.zoom({ position: 'topright' }).addTo(map);
         map.attributionControl.setPrefix(false);
         map.attributionControl.addAttribution('Basemap: Natural Earth');
         map.setMinZoom(3); map.setMaxZoom(8);
@@ -79,7 +85,7 @@ export default function MapView({ shipments, alerts, selectedId, onSelect }) {
         return () => { map.remove(); mapRef.current = null; };
     }, []);
 
-    // redraw overlays whenever the data or selection changes
+    // redraw overlays whenever the data, selection or layer toggles change
     useEffect(() => {
         const map = mapRef.current, layers = layersRef.current;
         if (!map || !layers) return;
@@ -87,7 +93,7 @@ export default function MapView({ shipments, alerts, selectedId, onSelect }) {
         const facilityById = Object.fromEntries(FACILITIES.map(f => [f.id, f]));
 
         // ---- shipment routes ----
-        const originStops = {};   // city -> {point, clipped, cities' shipments touch it}
+        const originStops = {};   // city -> clamped point, deduped across shipments
         shipments.forEach(s => {
             const rawFrom = ORIGIN_COORDS[s.origin];
             const dest = facilityById[s.destId];
@@ -95,17 +101,19 @@ export default function MapView({ shipments, alerts, selectedId, onSelect }) {
             const { point: from, clipped } = clampOrigin(rawFrom, [dest.lat, dest.lng]);
             originStops[s.origin] = { point: from, clipped };
             const isSel = s.id === selectedId;
-            const line = L.polyline([from, [dest.lat, dest.lng]], {
-                color: riskColor(s.riskScore),
-                weight: isSel ? 4 : 2,
-                opacity: isSel ? 0.95 : 0.55,
-                dashArray: s.status === 'Delivered' ? '2 8' : s.status === 'Loading' ? '6 6' : null,
-            });
-            line.bindTooltip(`${s.id} · ${s.origin} → ${dest.name} · ${s.status}`, { sticky: true, direction: 'top' });
-            line.on('click', () => onSelect(s.id));
-            layers.addLayer(line);
+            if (show.routes) {
+                const line = L.polyline([from, [dest.lat, dest.lng]], {
+                    color: riskColor(s.riskScore),
+                    weight: isSel ? 4 : 2,
+                    opacity: isSel ? 0.95 : 0.55,
+                    dashArray: s.status === 'Delivered' ? '2 8' : s.status === 'Loading' ? '6 6' : null,
+                });
+                line.bindTooltip(`${s.id} · ${s.origin} → ${dest.name} · ${s.status}`, { sticky: true, direction: 'top' });
+                line.on('click', () => onSelect(s.id));
+                layers.addLayer(line);
+            }
             // mode chip at the route midpoint for in-motion shipments
-            if (s.status === 'In transit' || s.status === 'Delayed') {
+            if (show.transit && (s.status === 'In transit' || s.status === 'Delayed')) {
                 const mid = [(from[0] + dest.lat) / 2, (from[1] + dest.lng) / 2];
                 const c = riskColor(s.riskScore);
                 const chip = L.divIcon({
@@ -121,7 +129,7 @@ export default function MapView({ shipments, alerts, selectedId, onSelect }) {
         });
 
         // ---- facility pins ----
-        FACILITIES.forEach(f => {
+        if (show.facilities) FACILITIES.forEach(f => {
             const icon = L.divIcon({
                 className: '',
                 html: `<div class="map-fac">${bpSvg('Office', 11)}<span class="map-fac__name">${f.name}</span><span class="map-fac__cap">${f.capacityPct}%</span></div>`,
@@ -133,7 +141,7 @@ export default function MapView({ shipments, alerts, selectedId, onSelect }) {
         });
 
         // ---- origin city dots (deduped) — routes start somewhere visible ----
-        Object.entries(originStops).forEach(([city, o]) => {
+        if (show.origins) Object.entries(originStops).forEach(([city, o]) => {
             const icon = L.divIcon({
                 className: '',
                 html: `<div class="map-origin"><span class="map-origin__dot"></span>${city}${o.clipped ? ' →' : ''}</div>`,
@@ -143,25 +151,55 @@ export default function MapView({ shipments, alerts, selectedId, onSelect }) {
         });
 
         // ---- alert callouts (unacked only), stacked per destination ----
-        const stackAt = {};
-        alerts.filter(a => !a.acked).forEach(a => {
-            const s = shipments.find(x => x.id === a.shipmentId);
-            if (!s) return;                        // filtered out — no callout
-            const dest = facilityById[s.destId];
-            if (!dest) return;
-            const n = (stackAt[s.destId] = (stackAt[s.destId] || 0) + 1);
-            const icon = L.divIcon({
-                className: '',
-                html: `<div class="map-callout map-callout--${a.severity}">
-                         <span class="map-callout__pin">${bpSvg('WarningSign', 10)}</span> ${a.kind} · <b>${s.id}</b>
-                       </div>`,
-                iconSize: null, iconAnchor: [-14, 44 + (n - 1) * 34],
+        if (show.alerts) {
+            const stackAt = {};
+            alerts.filter(a => !a.acked).forEach(a => {
+                const s = shipments.find(x => x.id === a.shipmentId);
+                if (!s) return;                        // filtered out — no callout
+                const dest = facilityById[s.destId];
+                if (!dest) return;
+                const n = (stackAt[s.destId] = (stackAt[s.destId] || 0) + 1);
+                const icon = L.divIcon({
+                    className: '',
+                    html: `<div class="map-callout map-callout--${a.severity}">
+                             <span class="map-callout__pin">${bpSvg('WarningSign', 10)}</span> ${a.kind} · <b>${s.id}</b>
+                           </div>`,
+                    iconSize: null, iconAnchor: [-14, 44 + (n - 1) * 34],
+                });
+                const m = L.marker([dest.lat, dest.lng], { icon, zIndexOffset: 1000 });
+                m.on('click', () => onSelect(s.id));
+                layers.addLayer(m);
             });
-            const m = L.marker([dest.lat, dest.lng], { icon, zIndexOffset: 1000 });
-            m.on('click', () => onSelect(s.id));
-            layers.addLayer(m);
-        });
-    }, [shipments, alerts, selectedId, onSelect]);
+        }
+    }, [shipments, alerts, selectedId, onSelect, show]);
 
-    return <div ref={hostRef} className="map-host" />;
+    const inMotion = shipments.filter(s => s.status === 'In transit' || s.status === 'Delayed').length;
+    const openAlerts = alerts.filter(a => !a.acked).length;
+
+    return (
+        <div className="map-wrap">
+            <div ref={hostRef} className="map-host" />
+            <div className="map-panel">
+                <div className="map-panel__title">Map layers</div>
+                <Switch checked={show.routes} onChange={() => toggle('routes')}
+                    labelElement={<span>Routes <span className="dim">({shipments.length})</span></span>} />
+                <Switch checked={show.transit} onChange={() => toggle('transit')}
+                    labelElement={<span>In motion <span className="dim">({inMotion})</span></span>} />
+                <Switch checked={show.facilities} onChange={() => toggle('facilities')}
+                    labelElement={<span>Facilities <span className="dim">({FACILITIES.length})</span></span>} />
+                <Switch checked={show.alerts} onChange={() => toggle('alerts')}
+                    labelElement={<span>Open alerts <span className="dim">({openAlerts})</span></span>} />
+                <Switch checked={show.origins} onChange={() => toggle('origins')}
+                    labelElement={<span>Origin cities</span>} />
+
+                <div className="map-panel__title map-panel__title--legend">Reading the map</div>
+                <div className="legend-row"><span className="legend-line" style={{ background: '#34d399' }} /> Low risk route</div>
+                <div className="legend-row"><span className="legend-line" style={{ background: '#fbbf24' }} /> Medium risk</div>
+                <div className="legend-row"><span className="legend-line" style={{ background: '#f87171' }} /> High risk</div>
+                <div className="legend-row"><span className="legend-line legend-line--dash" /> Loading / delivered</div>
+                <div className="legend-row"><span className="legend-line legend-line--thick" style={{ background: '#34d399' }} /> Selected shipment</div>
+                <div className="legend-row legend-row--hint">A route runs origin city → facility. Click anything to inspect it.</div>
+            </div>
+        </div>
+    );
 }
