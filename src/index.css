@@ -63,6 +63,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 .legend-line { width: 22px; height: 2px; border-radius: 1px; flex: none; }
 .legend-line--thick { height: 4px; }
 .legend-line--dash { height: 0; border-top: 2px dashed #8f99a8; background: none !important; }
+.legend-duo { display: inline-flex; width: 22px; flex: none; align-items: center; }
+.legend-duo__solid { width: 11px; height: 2px; background: #34d399; }
+.legend-duo__dash { width: 11px; height: 0; border-top: 2px dashed #34d399; }
 .legend-row--hint { color: #8f99a8; font-size: 11px; line-height: 1.45; margin-top: 4px; }
 .table-pane { display: flex; flex-direction: column; }
 .map-fac { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;

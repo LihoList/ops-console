@@ -71,6 +71,7 @@ export function MapLayersPanel({ show, onToggle, shipments, alerts }) {
             <div className="legend-row"><span className="legend-line" style={{ background: '#34d399' }} /> Low risk route</div>
             <div className="legend-row"><span className="legend-line" style={{ background: '#fbbf24' }} /> Medium risk</div>
             <div className="legend-row"><span className="legend-line" style={{ background: '#f87171' }} /> High risk</div>
+            <div className="legend-row"><span className="legend-duo"><span className="legend-duo__solid" /><span className="legend-duo__dash" /></span> Travelled · remaining</div>
             <div className="legend-row"><span className="legend-line legend-line--dash" /> Loading / delivered</div>
             <div className="legend-row"><span className="legend-line legend-line--thick" style={{ background: '#34d399' }} /> Selected shipment</div>
             <div className="legend-row legend-row--hint">A route runs origin city → facility. Click anything to inspect it.</div>
@@ -130,27 +131,40 @@ export default function MapView({ shipments, alerts, selectedId, onSelect, show 
             const { point: from, clipped } = clampOrigin(rawFrom, [dest.lat, dest.lng]);
             originStops[s.origin] = { point: from, clipped };
             const isSel = s.id === selectedId;
-            if (show.routes) {
-                const line = L.polyline([from, [dest.lat, dest.lng]], {
-                    color: riskColor(s.riskScore),
-                    weight: isSel ? 4 : 2,
-                    opacity: isSel ? 0.95 : 0.55,
-                    dashArray: s.status === 'Delivered' ? '2 8' : s.status === 'Loading' ? '6 6' : null,
-                });
-                line.bindTooltip(`${s.id} · ${s.origin} → ${dest.name} · ${s.status}`, { sticky: true, direction: 'top' });
+            const c = riskColor(s.riskScore);
+            const inMotion = s.status === 'In transit' || s.status === 'Delayed';
+            const tip = `${s.id} · ${s.origin} → ${dest.name} · ${s.status}`;
+            const wire = (line) => {
+                line.bindTooltip(tip, { sticky: true, direction: 'top' });
                 line.on('click', () => onSelect(s.id));
                 layers.addLayer(line);
+            };
+            const drawnAsProgress = show.transit && inMotion;
+            // Base routes are a faint background net; when the in-motion layer
+            // already draws a shipment's progress path, skip its base route so
+            // the two layers compose instead of stacking.
+            if (show.routes && !drawnAsProgress) {
+                wire(L.polyline([from, [dest.lat, dest.lng]], {
+                    color: c,
+                    weight: isSel ? 3.5 : 2,
+                    opacity: isSel ? 0.9 : 0.22,
+                    dashArray: s.status === 'Delivered' ? '2 8' : s.status === 'Loading' ? '6 6' : null,
+                }));
             }
-            // mode chip at the route midpoint for in-motion shipments
-            if (show.transit && (s.status === 'In transit' || s.status === 'Delayed')) {
-                const mid = [(from[0] + dest.lat) / 2, (from[1] + dest.lng) / 2];
-                const c = riskColor(s.riskScore);
+            // In-motion: travelled part solid, remaining part dashed, chip at
+            // the estimated position (derived from remaining ETA, ~48h trips).
+            if (drawnAsProgress) {
+                const t = Math.min(0.9, Math.max(0.1, 1 - s.etaH / 48));
+                const pos = [from[0] + (dest.lat - from[0]) * t, from[1] + (dest.lng - from[1]) * t];
+                const w = isSel ? 4 : 2.5;
+                wire(L.polyline([from, pos], { color: c, weight: w, opacity: isSel ? 0.95 : 0.8 }));
+                wire(L.polyline([pos, [dest.lat, dest.lng]], { color: c, weight: w, opacity: isSel ? 0.8 : 0.55, dashArray: '5 9' }));
                 const chip = L.divIcon({
                     className: '',
                     html: `<div class="map-chip${isSel ? ' map-chip--sel' : ''}" style="border-color:${c};color:${c}">${bpSvg(MODE_ICON[s.mode] || 'Truck', 11)}</div>`,
                     iconSize: [22, 22], iconAnchor: [11, 11],
                 });
-                const dot = L.marker(mid, { icon: chip, zIndexOffset: isSel ? 400 : 300 });
+                const dot = L.marker(pos, { icon: chip, zIndexOffset: isSel ? 400 : 300 });
                 dot.bindTooltip(`${s.id} · ${s.mode} · ETA ${s.etaH}h`, { direction: 'top' });
                 dot.on('click', () => onSelect(s.id));
                 layers.addLayer(dot);
