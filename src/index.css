@@ -45,3 +45,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
     .app-body { grid-template-columns: 64px minmax(0, 1fr) 340px; }
     .otype-label, .rail-note, .ontology .bp6-tag { display: none; }
 }
+
+/* shipment form dialog */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; }
+.form-span { grid-column: 1 / -1; padding: 0 8px; }

@@ -7,6 +7,7 @@ import {
     Navbar, Alignment, InputGroup, Button, ButtonGroup, Tag, HTMLTable, Card,
     Dialog, DialogBody, DialogFooter, HTMLSelect, ProgressBar, Icon, Tooltip,
     Divider, NonIdealState, OverlayToaster, Position, Intent,
+    FormGroup, NumericInput, Slider,
 } from '@blueprintjs/core';
 import {
     OBJECT_TYPES, FACILITIES, INITIAL_ALERTS, INITIAL_SHIPMENTS,
@@ -22,6 +23,28 @@ async function toast(props) {
 
 const now = () => new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
+// ---- random shipment generator (for the "Randomize" buttons) ----
+const RND_ORIGINS = ['Shanghai', 'Rotterdam', 'Hamburg', 'Antwerp', 'Valencia', 'Milan', 'Gdansk', 'Barcelona', 'Lyon', 'Duisburg', 'Istanbul', 'Oslo'];
+const RND_MODES = ['Ocean', 'Rail', 'Road'];
+const RND_STATUSES = ['In transit', 'Loading', 'Delayed', 'At customs'];
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+function randomShipmentFields() {
+    const status = pick(RND_STATUSES);
+    return {
+        origin: pick(RND_ORIGINS),
+        destId: pick(FACILITIES).id,
+        mode: pick(RND_MODES),
+        status,
+        priority: pick(['P1', 'P2', 'P2', 'P3', 'P3']),
+        etaH: 4 + Math.floor(Math.random() * 44),
+        valueK: 30 + Math.floor(Math.random() * 420),
+        riskScore: status === 'Delayed' || status === 'At customs'
+            ? 45 + Math.floor(Math.random() * 50)
+            : 5 + Math.floor(Math.random() * 55),
+    };
+}
+const EMPTY_FORM = { origin: '', destId: FACILITIES[0].id, mode: 'Road', status: 'Loading', priority: 'P2', etaH: 24, valueK: 100, riskScore: 20 };
+
 export default function App() {
     const [shipments, setShipments] = useState(INITIAL_SHIPMENTS);
     const [alerts, setAlerts] = useState(INITIAL_ALERTS);
@@ -32,6 +55,8 @@ export default function App() {
     const [rerouteOpen, setRerouteOpen] = useState(false);
     const [rerouteDest, setRerouteDest] = useState(FACILITIES[0].id);
     const [aboutOpen, setAboutOpen] = useState(false);
+    // shipment form: null = closed, {mode:'create'|'edit', fields} = open
+    const [form, setForm] = useState(null);
     const [log, setLog] = useState([
         { t: '08:02', text: 'Shift handover accepted (Operator)' },
     ]);
@@ -71,6 +96,28 @@ export default function App() {
         addLog(`Marked delivered: ${selectedId}`);
         toast({ message: `${selectedId} marked as delivered`, intent: Intent.SUCCESS, icon: 'tick-circle' });
     }
+    function nextShipmentId() {
+        const max = shipments.reduce((m, s) => Math.max(m, parseInt(s.id.split('-')[1], 10) || 0), 2200);
+        return `SHP-${max + 1}`;
+    }
+    function actCreateShipment(fields) {
+        const id = nextShipmentId();
+        const ref = `PO-${88500 + Math.floor(Math.random() * 400)}`;
+        setShipments(list => [{ id, ref, ...fields }, ...list]);
+        setSelectedId(id);
+        setForm(null);
+        addLog(`Created ${id} — ${fields.origin} → ${facilityById[fields.destId]?.name}`);
+        toast({ message: `${id} created`, intent: Intent.SUCCESS, icon: 'plus' });
+    }
+    function actEditShipment(fields) {
+        setShipments(list => list.map(s => s.id === selectedId ? { ...s, ...fields } : s));
+        setForm(null);
+        addLog(`Edited ${selectedId}`);
+        toast({ message: `${selectedId} updated`, intent: Intent.PRIMARY, icon: 'edit' });
+    }
+    function actRandomShipment() {
+        actCreateShipment(randomShipmentFields());
+    }
 
     return (
         <div className="bp6-dark app-root">
@@ -84,8 +131,14 @@ export default function App() {
                     </Tag>
                 </Navbar.Group>
                 <Navbar.Group align={Alignment.RIGHT}>
+                    <Button intent={Intent.PRIMARY} icon="plus" text="New shipment"
+                        onClick={() => setForm({ mode: 'create', fields: { ...EMPTY_FORM } })} />
+                    <Tooltip content="Create a shipment with randomized parameters" placement="bottom">
+                        <Button icon="random" style={{ marginLeft: 8 }} onClick={actRandomShipment} />
+                    </Tooltip>
+                    <Navbar.Divider />
                     <InputGroup leftIcon="search" placeholder="Search shipments…" value={query}
-                        onChange={e => setQuery(e.target.value)} style={{ width: 240 }} />
+                        onChange={e => setQuery(e.target.value)} style={{ width: 220 }} />
                     <Navbar.Divider />
                     <Button variant="minimal" icon="info-sign" text="About" onClick={() => setAboutOpen(true)} />
                 </Navbar.Group>
@@ -209,6 +262,16 @@ export default function App() {
                                 <Button icon="tick-circle" intent={Intent.SUCCESS} text="Delivered"
                                     disabled={selected.status === 'Delivered'} onClick={actDeliver} />
                             </ButtonGroup>
+                            <ButtonGroup fill className="actions-row">
+                                <Button icon="edit" text="Edit shipment…" onClick={() => setForm({
+                                    mode: 'edit',
+                                    fields: {
+                                        origin: selected.origin, destId: selected.destId, mode: selected.mode,
+                                        status: selected.status, priority: selected.priority,
+                                        etaH: selected.etaH, valueK: selected.valueK, riskScore: selected.riskScore,
+                                    }
+                                })} />
+                            </ButtonGroup>
 
                             <div className="rail-title">ACTION LOG</div>
                             <div className="audit">
@@ -237,6 +300,73 @@ export default function App() {
                         <Button intent={Intent.PRIMARY} icon="route" text="Reroute" onClick={actReroute} />
                     </>
                 } />
+            </Dialog>
+
+            {/* ---- Create / edit shipment ---- */}
+            <Dialog isOpen={!!form} onClose={() => setForm(null)} className="bp6-dark"
+                title={form?.mode === 'edit' ? `Edit ${selectedId}` : 'New shipment'}
+                icon={form?.mode === 'edit' ? 'edit' : 'plus'}>
+                {form && (
+                    <>
+                        <DialogBody>
+                            <div className="form-grid">
+                                <FormGroup label="Origin">
+                                    <InputGroup placeholder="e.g. Hamburg" value={form.fields.origin}
+                                        onChange={e => setForm(f => ({ ...f, fields: { ...f.fields, origin: e.target.value } }))} />
+                                </FormGroup>
+                                <FormGroup label="Destination facility">
+                                    <HTMLSelect fill value={form.fields.destId}
+                                        onChange={e => setForm(f => ({ ...f, fields: { ...f.fields, destId: e.target.value } }))}
+                                        options={FACILITIES.map(fa => ({ label: fa.name, value: fa.id }))} />
+                                </FormGroup>
+                                <FormGroup label="Mode">
+                                    <HTMLSelect fill value={form.fields.mode}
+                                        onChange={e => setForm(f => ({ ...f, fields: { ...f.fields, mode: e.target.value } }))}
+                                        options={['Road', 'Rail', 'Ocean']} />
+                                </FormGroup>
+                                <FormGroup label="Status">
+                                    <HTMLSelect fill value={form.fields.status}
+                                        onChange={e => setForm(f => ({ ...f, fields: { ...f.fields, status: e.target.value } }))}
+                                        options={['Loading', 'In transit', 'Delayed', 'At customs', 'Delivered']} />
+                                </FormGroup>
+                                <FormGroup label="Priority">
+                                    <HTMLSelect fill value={form.fields.priority}
+                                        onChange={e => setForm(f => ({ ...f, fields: { ...f.fields, priority: e.target.value } }))}
+                                        options={['P1', 'P2', 'P3']} />
+                                </FormGroup>
+                                <FormGroup label="ETA (hours)">
+                                    <NumericInput fill min={0} max={240} value={form.fields.etaH}
+                                        onValueChange={v => setForm(f => ({ ...f, fields: { ...f.fields, etaH: Number.isFinite(v) ? v : 0 } }))} />
+                                </FormGroup>
+                                <FormGroup label="Value ($k)">
+                                    <NumericInput fill min={1} max={2000} value={form.fields.valueK}
+                                        onValueChange={v => setForm(f => ({ ...f, fields: { ...f.fields, valueK: Number.isFinite(v) ? v : 1 } }))} />
+                                </FormGroup>
+                                <FormGroup label={`Risk score — ${form.fields.riskScore}`} className="form-span">
+                                    <Slider min={0} max={100} stepSize={1} labelStepSize={25}
+                                        value={form.fields.riskScore}
+                                        onChange={v => setForm(f => ({ ...f, fields: { ...f.fields, riskScore: v } }))} />
+                                </FormGroup>
+                            </div>
+                        </DialogBody>
+                        <DialogFooter
+                            actions={
+                                <>
+                                    <Button text="Cancel" onClick={() => setForm(null)} />
+                                    <Button intent={Intent.PRIMARY}
+                                        icon={form.mode === 'edit' ? 'edit' : 'plus'}
+                                        text={form.mode === 'edit' ? 'Save changes' : 'Create shipment'}
+                                        disabled={!form.fields.origin.trim()}
+                                        onClick={() => form.mode === 'edit'
+                                            ? actEditShipment(form.fields)
+                                            : actCreateShipment(form.fields)} />
+                                </>
+                            }>
+                            <Button icon="random" variant="minimal" text="Randomize"
+                                onClick={() => setForm(f => ({ ...f, fields: randomShipmentFields() }))} />
+                        </DialogFooter>
+                    </>
+                )}
             </Dialog>
 
             {/* ---- About ---- */}

@@ -13,8 +13,9 @@ version of exactly that:
 
 - **Objects** — shipments, facilities, alerts (fictional data)
 - **Links** — a shipment's destination facility, its alerts
-- **Actions** — *Reroute*, *Acknowledge alerts*, *Mark delivered* — named
-  mutations that land in an action log, not ad-hoc edits
+- **Actions** — *Reroute*, *Acknowledge alerts*, *Mark delivered*, plus
+  creating and editing shipments through a form (with a Randomize helper) —
+  named mutations that land in an action log, not ad-hoc edits
 
 ![Dispatch screenshot](docs/screenshot.png)
 
