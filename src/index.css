@@ -51,8 +51,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 .form-span { grid-column: 1 / -1; padding: 0 8px; }
 
 /* ---- network (map) view ---- */
+/* position+z-index isolate Leaflet's internal z-indexes (up to ~1000) in
+   their own stacking context, so Blueprint dialogs/toasts always paint on
+   top of the map instead of behind it */
 .map-host { height: calc(100% - 46px); min-height: 480px; border-radius: 6px; overflow: hidden;
-    border: 1px solid rgba(255,255,255,0.1); background: #0f1216; }
+    border: 1px solid rgba(255,255,255,0.1); background: #0f1216;
+    position: relative; z-index: 0; }
 
 /* layers / legend panel — lives in the left rail while the map is open */
 .map-panel .rail-title { margin-top: 14px; }

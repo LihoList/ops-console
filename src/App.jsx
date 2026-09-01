@@ -46,7 +46,7 @@ const EMPTY_FORM = { origin: 'Hamburg', destId: FACILITIES[0].id, mode: 'Road', 
 export default function App() {
     const [shipments, setShipments] = useState(INITIAL_SHIPMENTS);
     const [alerts, setAlerts] = useState(INITIAL_ALERTS);
-    const [selectedId, setSelectedId] = useState('SHP-2207');
+    const [selectedId, setSelectedId] = useState(null);
     const [query, setQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('All');
     const [priorityFilter, setPriorityFilter] = useState('All');
@@ -229,7 +229,8 @@ export default function App() {
                 {/* ---- Object detail + actions ---- */}
                 <aside className="detail">
                     {!selected ? (
-                        <NonIdealState icon="select" title="Pick a shipment" />
+                        <NonIdealState icon="select" title="No shipment selected"
+                            description="Click a table row, or a route, chip or callout on the map." />
                     ) : (
                         <>
                             <div className="detail-head">
@@ -271,7 +272,12 @@ export default function App() {
 
                             <div className="rail-title">ACTIONS</div>
                             <ButtonGroup fill vertical={false} className="actions-row">
-                                <Button icon="route" text="Reroute…" onClick={() => setRerouteOpen(true)} />
+                                <Button icon="route" text="Reroute…" onClick={() => {
+                                    // preselect the first facility that isn't the current destination —
+                                    // stale state here made the select show one thing and submit another
+                                    setRerouteDest(FACILITIES.find(f => f.id !== selected.destId).id);
+                                    setRerouteOpen(true);
+                                }} />
                                 <Button icon="tick" text="Ack alerts"
                                     disabled={selectedAlerts.every(a => a.acked)} onClick={actAckAlerts} />
                                 <Button icon="tick-circle" intent={Intent.SUCCESS} text="Delivered"
