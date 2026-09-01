@@ -17,7 +17,15 @@ version of exactly that:
   creating and editing shipments through a form (with a Randomize helper) —
   named mutations that land in an action log, not ad-hoc edits
 
-![Dispatch screenshot](docs/screenshot.png)
+The same objects render in two views: a table and a **Network** map
+(Leaflet + OpenStreetMap) where shipments are risk-colored routes,
+facilities are pins and open alerts float as callouts. Selecting or
+mutating an object in one view updates the other — one state, two
+projections.
+
+![Dispatch table view](docs/screenshot.png)
+
+![Dispatch network view](docs/map.png)
 
 ## Run
 

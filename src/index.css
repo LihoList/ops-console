@@ -49,3 +49,30 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 /* shipment form dialog */
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; }
 .form-span { grid-column: 1 / -1; padding: 0 8px; }
+
+/* ---- network (map) view ---- */
+.map-host { height: calc(100% - 46px); min-height: 480px; border-radius: 6px; overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.1); background: #0f1216; }
+.table-pane { display: flex; flex-direction: column; }
+.map-fac { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+    background: rgba(17,20,24,0.92); border: 1px solid rgba(255,255,255,0.25); border-radius: 6px;
+    padding: 3px 8px; font-size: 11px; color: #e8eaed; box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
+.map-fac__cap { color: #8f99a8; }
+.map-callout { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+    background: rgba(24,14,14,0.94); border-radius: 6px; padding: 4px 9px; font-size: 11px;
+    color: #f1c4c4; box-shadow: 0 3px 12px rgba(0,0,0,0.55); }
+.map-callout b { color: #fff; }
+.map-callout--critical { border: 1px solid rgba(248,113,113,0.85); }
+.map-callout--warning { border: 1px solid rgba(251,191,36,0.7); background: rgba(26,20,10,0.94); color: #f2debc; }
+.map-callout__pin { font-size: 8px; }
+.map-callout--critical .map-callout__pin { color: #f87171; }
+.map-callout--warning .map-callout__pin { color: #fbbf24; }
+.leaflet-container { background: #0f1216; font: inherit; }
+.leaflet-tooltip { background: rgba(17,20,24,0.95); color: #e8eaed; border: 1px solid rgba(255,255,255,0.2);
+    box-shadow: 0 3px 10px rgba(0,0,0,0.5); font-size: 11.5px; }
+.leaflet-tooltip-top:before, .leaflet-tooltip-bottom:before { border-top-color: rgba(255,255,255,0.2); }
+.leaflet-control-attribution { background: rgba(17,20,24,0.75) !important; color: #8f99a8 !important; font-size: 9.5px !important; }
+.leaflet-control-attribution a { color: #a8b2c1 !important; }
+.leaflet-bar a { background: rgba(17,20,24,0.92) !important; color: #e8eaed !important; border-color: rgba(255,255,255,0.15) !important; }
+/* dark-mode trick for keyless OSM tiles: invert + rotate hue back */
+.map-dark-tiles { filter: invert(1) hue-rotate(180deg) brightness(0.62) contrast(0.92) saturate(0.35); }

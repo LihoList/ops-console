@@ -9,12 +9,20 @@ export const OBJECT_TYPES = [
 ];
 
 export const FACILITIES = [
-    { id: 'FAC-01', name: 'Rotterdam Port T3', kind: 'Port', region: 'EU-West', capacityPct: 84 },
-    { id: 'FAC-02', name: 'Duisburg Rail Hub', kind: 'Rail hub', region: 'EU-Central', capacityPct: 61 },
-    { id: 'FAC-03', name: 'Lyon Cross-dock', kind: 'Cross-dock', region: 'EU-South', capacityPct: 47 },
-    { id: 'FAC-04', name: 'Gdansk DC', kind: 'Distribution', region: 'EU-East', capacityPct: 72 },
-    { id: 'FAC-05', name: 'Madrid DC', kind: 'Distribution', region: 'EU-South', capacityPct: 55 },
+    { id: 'FAC-01', name: 'Rotterdam Port T3', kind: 'Port', region: 'EU-West', capacityPct: 84, lat: 51.95, lng: 4.14 },
+    { id: 'FAC-02', name: 'Duisburg Rail Hub', kind: 'Rail hub', region: 'EU-Central', capacityPct: 61, lat: 51.43, lng: 6.76 },
+    { id: 'FAC-03', name: 'Lyon Cross-dock', kind: 'Cross-dock', region: 'EU-South', capacityPct: 47, lat: 45.76, lng: 4.84 },
+    { id: 'FAC-04', name: 'Gdansk DC', kind: 'Distribution', region: 'EU-East', capacityPct: 72, lat: 54.35, lng: 18.65 },
+    { id: 'FAC-05', name: 'Madrid DC', kind: 'Distribution', region: 'EU-South', capacityPct: 55, lat: 40.42, lng: -3.70 },
 ];
+
+// Origin cities for map routes (shipments start here, end at a facility).
+export const ORIGIN_COORDS = {
+    Shanghai: [31.23, 121.47], Rotterdam: [51.92, 4.48], Hamburg: [53.55, 9.99],
+    Antwerp: [51.22, 4.40], Valencia: [39.47, -0.38], Milan: [45.46, 9.19],
+    Gdansk: [54.35, 18.65], Barcelona: [41.39, 2.17], Lyon: [45.76, 4.84],
+    Duisburg: [51.43, 6.76], Istanbul: [41.01, 28.98], Oslo: [59.91, 10.75],
+};
 
 export const INITIAL_ALERTS = [
     { id: 'AL-101', shipmentId: 'SHP-2201', severity: 'critical', kind: 'Customs hold', detail: 'Missing HS code on 2 pallets', ageH: 6, acked: false },

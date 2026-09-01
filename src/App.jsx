@@ -13,6 +13,7 @@ import {
     OBJECT_TYPES, FACILITIES, INITIAL_ALERTS, INITIAL_SHIPMENTS,
     STATUS_INTENT, SEVERITY_INTENT,
 } from './data.js';
+import MapView from './MapView.jsx';
 
 // Toaster: created once, lazily (React 19-safe path is createAsync).
 let toasterPromise = null;
@@ -57,6 +58,7 @@ export default function App() {
     const [aboutOpen, setAboutOpen] = useState(false);
     // shipment form: null = closed, {mode:'create'|'edit', fields} = open
     const [form, setForm] = useState(null);
+    const [view, setView] = useState('table');   // 'table' | 'map'
     const [log, setLog] = useState([
         { t: '08:02', text: 'Shift handover accepted (Operator)' },
     ]);
@@ -171,13 +173,20 @@ export default function App() {
                 {/* ---- Object table ---- */}
                 <main className="table-pane">
                     <div className="filters">
+                        <ButtonGroup>
+                            <Button icon="th" text="Table" active={view === 'table'} onClick={() => setView('table')} />
+                            <Button icon="map" text="Network" active={view === 'map'} onClick={() => setView('map')} />
+                        </ButtonGroup>
+                        <Divider style={{ height: 20 }} />
                         <HTMLSelect value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
                             options={['All', 'In transit', 'Delayed', 'At customs', 'Loading', 'Delivered']} />
                         <HTMLSelect value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)}
                             options={['All', 'P1', 'P2', 'P3']} />
                         <span className="filters-count">{visible.length} of {shipments.length} shipments</span>
                     </div>
-                    {visible.length === 0 ? (
+                    {view === 'map' ? (
+                        <MapView shipments={visible} alerts={alerts} selectedId={selectedId} onSelect={setSelectedId} />
+                    ) : visible.length === 0 ? (
                         <NonIdealState icon="search" title="No shipments match" description="Loosen the filters." />
                     ) : (
                         <HTMLTable interactive striped className="ship-table">
