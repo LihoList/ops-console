@@ -43,7 +43,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 
 @media (max-width: 1100px) {
     .app-body { grid-template-columns: 64px minmax(0, 1fr) 340px; }
-    .otype-label, .rail-note, .ontology .bp6-tag { display: none; }
+    .otype-label, .rail-note, .ontology .bp6-tag, .map-panel { display: none; }
 }
 
 /* shipment form dialog */
@@ -51,18 +51,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 .form-span { grid-column: 1 / -1; padding: 0 8px; }
 
 /* ---- network (map) view ---- */
-.map-wrap { position: relative; height: calc(100% - 46px); min-height: 480px; }
-.map-host { height: 100%; border-radius: 6px; overflow: hidden;
+.map-host { height: calc(100% - 46px); min-height: 480px; border-radius: 6px; overflow: hidden;
     border: 1px solid rgba(255,255,255,0.1); background: #0f1216; }
 
-/* layers / legend panel over the map */
-.map-panel { position: absolute; top: 12px; left: 12px; z-index: 1100; width: 200px;
-    background: rgba(17,20,24,0.95); border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 6px; padding: 12px 14px 10px; box-shadow: 0 4px 18px rgba(0,0,0,0.5); }
-.map-panel__title { font-size: 10px; letter-spacing: 0.12em; color: #8f99a8;
-    font-weight: 700; text-transform: uppercase; margin-bottom: 8px; }
-.map-panel__title--legend { margin-top: 12px; padding-top: 10px;
-    border-top: 1px solid rgba(255,255,255,0.08); }
+/* layers / legend panel — lives in the left rail while the map is open */
+.map-panel .rail-title { margin-top: 14px; }
+.map-panel .rail-title:first-child { margin-top: 0; }
 .map-panel .bp6-switch { margin-bottom: 7px; font-size: 12.5px; }
 .legend-row { display: flex; align-items: center; gap: 8px; font-size: 11.5px;
     color: #c5cbd3; margin-bottom: 6px; }

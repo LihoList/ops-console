@@ -14,7 +14,7 @@ import {
     STATUS_INTENT, SEVERITY_INTENT,
 computeRisk, ORIGINS,
 } from './data.js';
-import MapView from './MapView.jsx';
+import MapView, { MapLayersPanel, DEFAULT_MAP_LAYERS } from './MapView.jsx';
 
 // Toaster: created once, lazily (React 19-safe path is createAsync).
 let toasterPromise = null;
@@ -56,6 +56,8 @@ export default function App() {
     // shipment form: null = closed, {mode:'create'|'edit', fields} = open
     const [form, setForm] = useState(null);
     const [view, setView] = useState('table');   // 'table' | 'map'
+    const [mapShow, setMapShow] = useState(DEFAULT_MAP_LAYERS);
+    const toggleMapLayer = (k) => setMapShow(m => ({ ...m, [k]: !m[k] }));
     const [log, setLog] = useState([
         { t: '08:02', text: 'Shift handover accepted (Operator)' },
     ]);
@@ -165,6 +167,13 @@ export default function App() {
                         Objects link to each other; actions mutate them and land in the audit log.
                         The idiom is the point.
                     </div>
+                    {view === 'map' && (
+                        <>
+                            <Divider style={{ margin: '14px 0' }} />
+                            <MapLayersPanel show={mapShow} onToggle={toggleMapLayer}
+                                shipments={shipments} alerts={alerts} />
+                        </>
+                    )}
                 </aside>
 
                 {/* ---- Object table ---- */}
@@ -182,7 +191,7 @@ export default function App() {
                         <span className="filters-count">{visible.length} of {shipments.length} shipments</span>
                     </div>
                     {view === 'map' ? (
-                        <MapView shipments={visible} alerts={alerts} selectedId={selectedId} onSelect={setSelectedId} />
+                        <MapView shipments={visible} alerts={alerts} selectedId={selectedId} onSelect={setSelectedId} show={mapShow} />
                     ) : visible.length === 0 ? (
                         <NonIdealState icon="search" title="No shipments match" description="Loosen the filters." />
                     ) : (

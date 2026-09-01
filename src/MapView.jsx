@@ -3,7 +3,7 @@
 // anchored to their shipment's destination. Clicking anything selects the
 // object in the shared detail panel; actions there update the map live.
 // A layers panel on the left explains the encoding and toggles each layer.
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { Switch } from '@blueprintjs/core';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -45,14 +45,43 @@ function bpSvg(name, size = 12) {
 }
 const MODE_ICON = { Road: 'Truck', Rail: 'Train', Ocean: 'CargoShip' };
 
-export default function MapView({ shipments, alerts, selectedId, onSelect }) {
+export const DEFAULT_MAP_LAYERS = {
+    routes: true, transit: true, facilities: true, alerts: true, origins: true,
+};
+
+// Rendered in the left rail (next to the ontology) while the map is open.
+export function MapLayersPanel({ show, onToggle, shipments, alerts }) {
+    const inMotion = shipments.filter(s => s.status === 'In transit' || s.status === 'Delayed').length;
+    const openAlerts = alerts.filter(a => !a.acked).length;
+    return (
+        <div className="map-panel">
+            <div className="rail-title">MAP LAYERS</div>
+            <Switch checked={show.routes} onChange={() => onToggle('routes')}
+                labelElement={<span>Routes <span className="dim">({shipments.length})</span></span>} />
+            <Switch checked={show.transit} onChange={() => onToggle('transit')}
+                labelElement={<span>In motion <span className="dim">({inMotion})</span></span>} />
+            <Switch checked={show.facilities} onChange={() => onToggle('facilities')}
+                labelElement={<span>Facilities <span className="dim">({FACILITIES.length})</span></span>} />
+            <Switch checked={show.alerts} onChange={() => onToggle('alerts')}
+                labelElement={<span>Open alerts <span className="dim">({openAlerts})</span></span>} />
+            <Switch checked={show.origins} onChange={() => onToggle('origins')}
+                labelElement={<span>Origin cities</span>} />
+
+            <div className="rail-title">READING THE MAP</div>
+            <div className="legend-row"><span className="legend-line" style={{ background: '#34d399' }} /> Low risk route</div>
+            <div className="legend-row"><span className="legend-line" style={{ background: '#fbbf24' }} /> Medium risk</div>
+            <div className="legend-row"><span className="legend-line" style={{ background: '#f87171' }} /> High risk</div>
+            <div className="legend-row"><span className="legend-line legend-line--dash" /> Loading / delivered</div>
+            <div className="legend-row"><span className="legend-line legend-line--thick" style={{ background: '#34d399' }} /> Selected shipment</div>
+            <div className="legend-row legend-row--hint">A route runs origin city → facility. Click anything to inspect it.</div>
+        </div>
+    );
+}
+
+export default function MapView({ shipments, alerts, selectedId, onSelect, show = DEFAULT_MAP_LAYERS }) {
     const hostRef = useRef(null);
     const mapRef = useRef(null);
     const layersRef = useRef(null);
-    const [show, setShow] = useState({
-        routes: true, transit: true, facilities: true, alerts: true, origins: true,
-    });
-    const toggle = (k) => setShow(s => ({ ...s, [k]: !s[k] }));
 
     // one-time map setup
     useEffect(() => {
@@ -173,33 +202,5 @@ export default function MapView({ shipments, alerts, selectedId, onSelect }) {
         }
     }, [shipments, alerts, selectedId, onSelect, show]);
 
-    const inMotion = shipments.filter(s => s.status === 'In transit' || s.status === 'Delayed').length;
-    const openAlerts = alerts.filter(a => !a.acked).length;
-
-    return (
-        <div className="map-wrap">
-            <div ref={hostRef} className="map-host" />
-            <div className="map-panel">
-                <div className="map-panel__title">Map layers</div>
-                <Switch checked={show.routes} onChange={() => toggle('routes')}
-                    labelElement={<span>Routes <span className="dim">({shipments.length})</span></span>} />
-                <Switch checked={show.transit} onChange={() => toggle('transit')}
-                    labelElement={<span>In motion <span className="dim">({inMotion})</span></span>} />
-                <Switch checked={show.facilities} onChange={() => toggle('facilities')}
-                    labelElement={<span>Facilities <span className="dim">({FACILITIES.length})</span></span>} />
-                <Switch checked={show.alerts} onChange={() => toggle('alerts')}
-                    labelElement={<span>Open alerts <span className="dim">({openAlerts})</span></span>} />
-                <Switch checked={show.origins} onChange={() => toggle('origins')}
-                    labelElement={<span>Origin cities</span>} />
-
-                <div className="map-panel__title map-panel__title--legend">Reading the map</div>
-                <div className="legend-row"><span className="legend-line" style={{ background: '#34d399' }} /> Low risk route</div>
-                <div className="legend-row"><span className="legend-line" style={{ background: '#fbbf24' }} /> Medium risk</div>
-                <div className="legend-row"><span className="legend-line" style={{ background: '#f87171' }} /> High risk</div>
-                <div className="legend-row"><span className="legend-line legend-line--dash" /> Loading / delivered</div>
-                <div className="legend-row"><span className="legend-line legend-line--thick" style={{ background: '#34d399' }} /> Selected shipment</div>
-                <div className="legend-row legend-row--hint">A route runs origin city → facility. Click anything to inspect it.</div>
-            </div>
-        </div>
-    );
+    return <div ref={hostRef} className="map-host" />;
 }
