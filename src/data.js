@@ -17,12 +17,17 @@ export const FACILITIES = [
 ];
 
 // Origin cities for map routes (shipments start here, end at a facility).
+// Origins are picked from this list — free text would leave routes that
+// can't be drawn on the map.
 export const ORIGIN_COORDS = {
     Shanghai: [31.23, 121.47], Rotterdam: [51.92, 4.48], Hamburg: [53.55, 9.99],
     Antwerp: [51.22, 4.40], Valencia: [39.47, -0.38], Milan: [45.46, 9.19],
     Gdansk: [54.35, 18.65], Barcelona: [41.39, 2.17], Lyon: [45.76, 4.84],
     Duisburg: [51.43, 6.76], Istanbul: [41.01, 28.98], Oslo: [59.91, 10.75],
+    Paderborn: [51.72, 8.75], Vienna: [48.21, 16.37], Warsaw: [52.23, 21.01],
+    Marseille: [43.30, 5.37], Prague: [50.08, 14.44], Copenhagen: [55.68, 12.57],
 };
+export const ORIGINS = Object.keys(ORIGIN_COORDS).sort();
 
 export const INITIAL_ALERTS = [
     { id: 'AL-101', shipmentId: 'SHP-2201', severity: 'critical', kind: 'Customs hold', detail: 'Missing HS code on 2 pallets', ageH: 6, acked: false },
@@ -47,6 +52,19 @@ export const INITIAL_SHIPMENTS = [
     { id: 'SHP-2211', ref: 'PO-88491', origin: 'Barcelona', destId: 'FAC-03', mode: 'Road', status: 'In transit', priority: 'P2', etaH: 12, valueK: 205, riskScore: 41 },
     { id: 'SHP-2212', ref: 'PO-88495', origin: 'Rotterdam', destId: 'FAC-05', mode: 'Road', status: 'In transit', priority: 'P1', etaH: 16, valueK: 310, riskScore: 49 },
 ];
+
+// Risk is a derived property, not an input — recomputed whenever a
+// shipment is created, edited or mutated by an action.
+export function computeRisk({ status, priority, etaH, valueK, mode }) {
+    if (status === 'Delivered') return 0;             // nothing left at risk
+    const base = { 'Delayed': 45, 'At customs': 40, 'In transit': 15, 'Loading': 10 }[status] ?? 15;
+    let score = base;
+    score += { P1: 20, P2: 10, P3: 0 }[priority] ?? 0;
+    score += Math.min(20, Math.round(valueK / 20));   // value at stake
+    if (status !== 'Delivered' && etaH < 12) score += 10; // tight window
+    if (mode === 'Ocean') score += 5;                 // longer, less recoverable
+    return Math.max(0, Math.min(100, score));
+}
 
 export const STATUS_INTENT = {
     'At customs': 'warning',

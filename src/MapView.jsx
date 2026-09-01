@@ -5,6 +5,7 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { IconSvgPaths16 } from '@blueprintjs/icons';
 import { FACILITIES, ORIGIN_COORDS } from './data.js';
 
 const EUROPE_BOUNDS = L.latLngBounds([39.0, -6.5], [56.5, 20.5]);
@@ -12,6 +13,15 @@ const EUROPE_BOUNDS = L.latLngBounds([39.0, -6.5], [56.5, 20.5]);
 function riskColor(score) {
     return score > 60 ? '#f87171' : score > 35 ? '#fbbf24' : '#34d399';
 }
+
+// Blueprint's own icon paths, inlined into Leaflet divIcons so map glyphs
+// match the rest of the UI exactly.
+function bpSvg(name, size = 12) {
+    const paths = IconSvgPaths16[name] || [];
+    return `<svg viewBox="0 0 16 16" width="${size}" height="${size}" fill="currentColor">` +
+        paths.map(d => `<path d="${d}" fill-rule="evenodd"/>`).join('') + '</svg>';
+}
+const MODE_ICON = { Road: 'Truck', Rail: 'Train', Ocean: 'CargoShip' };
 
 export default function MapView({ shipments, alerts, selectedId, onSelect }) {
     const hostRef = useRef(null);
@@ -24,13 +34,18 @@ export default function MapView({ shipments, alerts, selectedId, onSelect }) {
             zoomControl: true,
             attributionControl: true,
             scrollWheelZoom: true,
+            // half-level steps make wheel zoom feel smooth instead of jumpy
+            zoomSnap: 0.5,
+            zoomDelta: 0.5,
+            wheelPxPerZoomLevel: 90,
         });
         map.attributionControl.setPrefix(false);
-        // Standard OSM tiles, darkened with a CSS filter (see .map-dark-tiles in
-        // index.css) — no API key required, honest attribution kept.
+        // Standard OSM tiles, darkened with a CSS filter on the whole tile pane
+        // (per-tile filters flash unfiltered during zoom animation) — see
+        // .leaflet-tile-pane rule in index.css. No API key required.
         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-            maxZoom: 12, minZoom: 3, className: 'map-dark-tiles',
+            maxZoom: 12, minZoom: 3,
         }).addTo(map);
         map.fitBounds(EUROPE_BOUNDS, { padding: [10, 10] });
         layersRef.current = L.layerGroup().addTo(map);
@@ -62,14 +77,17 @@ export default function MapView({ shipments, alerts, selectedId, onSelect }) {
             line.bindTooltip(`${s.id} · ${s.origin} → ${dest.name} · ${s.status}`, { sticky: true, direction: 'top' });
             line.on('click', () => onSelect(s.id));
             layers.addLayer(line);
-            // moving-dot midpoint marker for in-motion shipments
+            // mode chip at the route midpoint for in-motion shipments
             if (s.status === 'In transit' || s.status === 'Delayed') {
                 const mid = [(from[0] + dest.lat) / 2, (from[1] + dest.lng) / 2];
-                const dot = L.circleMarker(mid, {
-                    radius: isSel ? 6 : 4, color: riskColor(s.riskScore),
-                    fillColor: riskColor(s.riskScore), fillOpacity: 0.9, weight: 1,
+                const c = riskColor(s.riskScore);
+                const chip = L.divIcon({
+                    className: '',
+                    html: `<div class="map-chip${isSel ? ' map-chip--sel' : ''}" style="border-color:${c};color:${c}">${bpSvg(MODE_ICON[s.mode] || 'Truck', 11)}</div>`,
+                    iconSize: [22, 22], iconAnchor: [11, 11],
                 });
-                dot.bindTooltip(`${s.id} · ETA ${s.etaH}h`, { direction: 'top' });
+                const dot = L.marker(mid, { icon: chip, zIndexOffset: isSel ? 800 : 300 });
+                dot.bindTooltip(`${s.id} · ${s.mode} · ETA ${s.etaH}h`, { direction: 'top' });
                 dot.on('click', () => onSelect(s.id));
                 layers.addLayer(dot);
             }
@@ -79,7 +97,7 @@ export default function MapView({ shipments, alerts, selectedId, onSelect }) {
         FACILITIES.forEach(f => {
             const icon = L.divIcon({
                 className: '',
-                html: `<div class="map-fac"><span class="map-fac__name">${f.name}</span><span class="map-fac__cap">${f.capacityPct}%</span></div>`,
+                html: `<div class="map-fac">${bpSvg('Office', 11)}<span class="map-fac__name">${f.name}</span><span class="map-fac__cap">${f.capacityPct}%</span></div>`,
                 iconSize: null, iconAnchor: [10, 10],
             });
             const m = L.marker([f.lat, f.lng], { icon, zIndexOffset: 500 });
@@ -98,7 +116,7 @@ export default function MapView({ shipments, alerts, selectedId, onSelect }) {
             const icon = L.divIcon({
                 className: '',
                 html: `<div class="map-callout map-callout--${a.severity}">
-                         <span class="map-callout__pin">▲</span> ${a.kind} · <b>${s.id}</b>
+                         <span class="map-callout__pin">${bpSvg('WarningSign', 10)}</span> ${a.kind} · <b>${s.id}</b>
                        </div>`,
                 iconSize: null, iconAnchor: [-14, 44 + (n - 1) * 34],
             });

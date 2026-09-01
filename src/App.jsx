@@ -7,11 +7,12 @@ import {
     Navbar, Alignment, InputGroup, Button, ButtonGroup, Tag, HTMLTable, Card,
     Dialog, DialogBody, DialogFooter, HTMLSelect, ProgressBar, Icon, Tooltip,
     Divider, NonIdealState, OverlayToaster, Position, Intent,
-    FormGroup, NumericInput, Slider,
+    FormGroup, NumericInput,
 } from '@blueprintjs/core';
 import {
     OBJECT_TYPES, FACILITIES, INITIAL_ALERTS, INITIAL_SHIPMENTS,
     STATUS_INTENT, SEVERITY_INTENT,
+computeRisk, ORIGINS,
 } from './data.js';
 import MapView from './MapView.jsx';
 
@@ -25,26 +26,22 @@ async function toast(props) {
 const now = () => new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
 // ---- random shipment generator (for the "Randomize" buttons) ----
-const RND_ORIGINS = ['Shanghai', 'Rotterdam', 'Hamburg', 'Antwerp', 'Valencia', 'Milan', 'Gdansk', 'Barcelona', 'Lyon', 'Duisburg', 'Istanbul', 'Oslo'];
 const RND_MODES = ['Ocean', 'Rail', 'Road'];
 const RND_STATUSES = ['In transit', 'Loading', 'Delayed', 'At customs'];
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 function randomShipmentFields() {
     const status = pick(RND_STATUSES);
     return {
-        origin: pick(RND_ORIGINS),
+        origin: pick(ORIGINS),
         destId: pick(FACILITIES).id,
         mode: pick(RND_MODES),
         status,
         priority: pick(['P1', 'P2', 'P2', 'P3', 'P3']),
         etaH: 4 + Math.floor(Math.random() * 44),
         valueK: 30 + Math.floor(Math.random() * 420),
-        riskScore: status === 'Delayed' || status === 'At customs'
-            ? 45 + Math.floor(Math.random() * 50)
-            : 5 + Math.floor(Math.random() * 55),
     };
 }
-const EMPTY_FORM = { origin: '', destId: FACILITIES[0].id, mode: 'Road', status: 'Loading', priority: 'P2', etaH: 24, valueK: 100, riskScore: 20 };
+const EMPTY_FORM = { origin: 'Hamburg', destId: FACILITIES[0].id, mode: 'Road', status: 'Loading', priority: 'P2', etaH: 24, valueK: 100 };
 
 export default function App() {
     const [shipments, setShipments] = useState(INITIAL_SHIPMENTS);
@@ -83,7 +80,7 @@ export default function App() {
     // ---- ACTIONS (the Foundry idiom: named, auditable mutations) ----
     function actReroute() {
         const dest = facilityById[rerouteDest];
-        setShipments(list => list.map(s => s.id === selectedId ? { ...s, destId: rerouteDest, status: 'In transit' } : s));
+        setShipments(list => list.map(s => s.id === selectedId ? { ...s, destId: rerouteDest, status: 'In transit', riskScore: computeRisk({ ...s, status: 'In transit' }) } : s));
         setRerouteOpen(false);
         addLog(`Reroute: ${selectedId} → ${dest.name}`);
         toast({ message: `${selectedId} rerouted to ${dest.name}`, intent: Intent.SUCCESS, icon: 'route' });
@@ -94,7 +91,7 @@ export default function App() {
         toast({ message: 'Alerts acknowledged', intent: Intent.PRIMARY, icon: 'tick' });
     }
     function actDeliver() {
-        setShipments(list => list.map(s => s.id === selectedId ? { ...s, status: 'Delivered', etaH: 0 } : s));
+        setShipments(list => list.map(s => s.id === selectedId ? { ...s, status: 'Delivered', etaH: 0, riskScore: computeRisk({ ...s, status: 'Delivered', etaH: 0 }) } : s));
         addLog(`Marked delivered: ${selectedId}`);
         toast({ message: `${selectedId} marked as delivered`, intent: Intent.SUCCESS, icon: 'tick-circle' });
     }
@@ -105,14 +102,14 @@ export default function App() {
     function actCreateShipment(fields) {
         const id = nextShipmentId();
         const ref = `PO-${88500 + Math.floor(Math.random() * 400)}`;
-        setShipments(list => [{ id, ref, ...fields }, ...list]);
+        setShipments(list => [{ id, ref, ...fields, riskScore: computeRisk(fields) }, ...list]);
         setSelectedId(id);
         setForm(null);
         addLog(`Created ${id} — ${fields.origin} → ${facilityById[fields.destId]?.name}`);
         toast({ message: `${id} created`, intent: Intent.SUCCESS, icon: 'plus' });
     }
     function actEditShipment(fields) {
-        setShipments(list => list.map(s => s.id === selectedId ? { ...s, ...fields } : s));
+        setShipments(list => list.map(s => s.id === selectedId ? { ...s, ...fields, riskScore: computeRisk(fields) } : s));
         setForm(null);
         addLog(`Edited ${selectedId}`);
         toast({ message: `${selectedId} updated`, intent: Intent.PRIMARY, icon: 'edit' });
@@ -277,7 +274,7 @@ export default function App() {
                                     fields: {
                                         origin: selected.origin, destId: selected.destId, mode: selected.mode,
                                         status: selected.status, priority: selected.priority,
-                                        etaH: selected.etaH, valueK: selected.valueK, riskScore: selected.riskScore,
+                                        etaH: selected.etaH, valueK: selected.valueK,
                                     }
                                 })} />
                             </ButtonGroup>
@@ -319,9 +316,10 @@ export default function App() {
                     <>
                         <DialogBody>
                             <div className="form-grid">
-                                <FormGroup label="Origin">
-                                    <InputGroup placeholder="e.g. Hamburg" value={form.fields.origin}
-                                        onChange={e => setForm(f => ({ ...f, fields: { ...f.fields, origin: e.target.value } }))} />
+                                <FormGroup label="Origin city">
+                                    <HTMLSelect fill value={form.fields.origin}
+                                        onChange={e => setForm(f => ({ ...f, fields: { ...f.fields, origin: e.target.value } }))}
+                                        options={ORIGINS} />
                                 </FormGroup>
                                 <FormGroup label="Destination facility">
                                     <HTMLSelect fill value={form.fields.destId}
@@ -351,10 +349,10 @@ export default function App() {
                                     <NumericInput fill min={1} max={2000} value={form.fields.valueK}
                                         onValueChange={v => setForm(f => ({ ...f, fields: { ...f.fields, valueK: Number.isFinite(v) ? v : 1 } }))} />
                                 </FormGroup>
-                                <FormGroup label={`Risk score — ${form.fields.riskScore}`} className="form-span">
-                                    <Slider min={0} max={100} stepSize={1} labelStepSize={25}
-                                        value={form.fields.riskScore}
-                                        onChange={v => setForm(f => ({ ...f, fields: { ...f.fields, riskScore: v } }))} />
+                                <FormGroup label={`Risk score — ${computeRisk(form.fields)} (computed)`} className="form-span"
+                                    helperText="Derived from status, priority, ETA, value and mode — not an input.">
+                                    <ProgressBar value={computeRisk(form.fields) / 100} stripes={false} animate={false}
+                                        intent={computeRisk(form.fields) > 60 ? Intent.DANGER : computeRisk(form.fields) > 35 ? Intent.WARNING : Intent.SUCCESS} />
                                 </FormGroup>
                             </div>
                         </DialogBody>
@@ -365,7 +363,6 @@ export default function App() {
                                     <Button intent={Intent.PRIMARY}
                                         icon={form.mode === 'edit' ? 'edit' : 'plus'}
                                         text={form.mode === 'edit' ? 'Save changes' : 'Create shipment'}
-                                        disabled={!form.fields.origin.trim()}
                                         onClick={() => form.mode === 'edit'
                                             ? actEditShipment(form.fields)
                                             : actCreateShipment(form.fields)} />
