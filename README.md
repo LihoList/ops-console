@@ -18,8 +18,9 @@ version of exactly that:
   named mutations that land in an action log, not ad-hoc edits
 
 The same objects render in two views: a table and a **Network** map
-(Leaflet + OpenStreetMap) where shipments are risk-colored routes,
-facilities are pins and open alerts float as callouts. Selecting or
+(Leaflet over a flat Natural Earth vector base — no tiles, no keys)
+where shipments are risk-colored routes between labeled origin cities
+and facility pins, and open alerts float as callouts. Selecting or
 mutating an object in one view updates the other — one state, two
 projections.
 
