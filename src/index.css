@@ -50,6 +50,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 .ship-table th { white-space: nowrap; }
 .ship-table td { vertical-align: middle; white-space: nowrap; }
 .row--selected td { background: rgba(72, 175, 240, 0.12) !important; }
+.ship-table tr:focus-visible { outline: 1px solid #4c90f0; outline-offset: -1px; }
 .risk-cell { min-width: 110px; }
 .risk-cell .bp6-progress-bar { height: 4px; margin-bottom: 3px; width: 70px; display: inline-block; margin-right: 8px; }
 .alerts-list { display: grid; gap: 8px; align-content: start; }

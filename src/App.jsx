@@ -126,7 +126,9 @@ export default function App() {
         toast({ message: `${id} created`, intent: Intent.SUCCESS, icon: 'plus' });
     }
     function actEditShipment(fields) {
-        setShipments(list => list.map(s => s.id === selectedId ? { ...s, ...fields, riskScore: computeRisk(fields) } : s));
+        // keep the same shape Deliver produces: a delivered shipment has no ETA
+        const norm = { ...fields, etaH: fields.status === 'Delivered' ? 0 : fields.etaH };
+        setShipments(list => list.map(s => s.id === selectedId ? { ...s, ...norm, riskScore: computeRisk(norm) } : s));
         setForm(null);
         addLog(`Edited ${selectedId}`);
         toast({ message: `${selectedId} updated`, intent: Intent.PRIMARY, icon: 'edit' });
@@ -175,7 +177,7 @@ export default function App() {
                 </div>
                 <div className={'kpi kpi--card' + (openAlertCount ? ' kpi--hot' : '')}
                     onClick={() => setView('alerts')} role="button" tabIndex={0}
-                    onKeyDown={e => e.key === 'Enter' && setView('alerts')}>
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setView('alerts'); } }}>
                     <div className="kpi__num">{FACILITIES.length}</div>
                     <div className="kpi__cap">Facilities <span className="kpi__hotnote">{openAlertCount} open alerts</span></div>
                 </div>
@@ -257,7 +259,8 @@ export default function App() {
                             </thead>
                             <tbody>
                                 {visible.map(s => (
-                                    <tr key={s.id} onClick={() => setSelectedId(s.id)}
+                                    <tr key={s.id} onClick={() => setSelectedId(s.id)} tabIndex={0}
+                                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedId(s.id); } }}
                                         className={s.id === selectedId ? 'row--selected' : ''}>
                                         <td className="mono">{s.id}</td>
                                         <td className="mono dim">{s.ref}</td>
@@ -430,12 +433,12 @@ export default function App() {
                                         options={['P1', 'P2', 'P3']} />
                                 </FormGroup>
                                 <FormGroup label="ETA (hours)">
-                                    <NumericInput fill min={0} max={240} value={form.fields.etaH}
-                                        onValueChange={v => setForm(f => ({ ...f, fields: { ...f.fields, etaH: Number.isFinite(v) ? v : 0 } }))} />
+                                    <NumericInput fill min={0} max={240} clampValueOnBlur value={form.fields.etaH}
+                                        onValueChange={v => setForm(f => ({ ...f, fields: { ...f.fields, etaH: Number.isFinite(v) ? Math.max(0, Math.min(240, v)) : 0 } }))} />
                                 </FormGroup>
                                 <FormGroup label="Value ($k)">
-                                    <NumericInput fill min={1} max={2000} value={form.fields.valueK}
-                                        onValueChange={v => setForm(f => ({ ...f, fields: { ...f.fields, valueK: Number.isFinite(v) ? v : 1 } }))} />
+                                    <NumericInput fill min={1} max={2000} clampValueOnBlur value={form.fields.valueK}
+                                        onValueChange={v => setForm(f => ({ ...f, fields: { ...f.fields, valueK: Number.isFinite(v) ? Math.max(1, Math.min(2000, v)) : 1 } }))} />
                                 </FormGroup>
                                 <FormGroup label={`Risk score — ${computeRisk(form.fields)} (computed)`} className="form-span"
                                     helperText="Derived from status, priority, ETA, value and mode — not an input.">

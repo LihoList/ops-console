@@ -38,7 +38,10 @@ export const INITIAL_ALERTS = [
     { id: 'AL-106', shipmentId: 'SHP-2205', severity: 'warning', kind: 'Capacity', detail: 'Destination at 84% — dock slot at risk', ageH: 4, acked: false },
 ];
 
-export const INITIAL_SHIPMENTS = [
+// Seed rows list a riskScore only for readability; the real value is
+// recomputed below so the data always obeys computeRisk — risk is
+// derived, never authored.
+const SEED_SHIPMENTS = [
     { id: 'SHP-2201', ref: 'PO-88412', origin: 'Shanghai', destId: 'FAC-01', mode: 'Ocean', status: 'At customs', priority: 'P1', etaH: 18, valueK: 412, riskScore: 87 },
     { id: 'SHP-2202', ref: 'PO-88433', origin: 'Rotterdam', destId: 'FAC-02', mode: 'Rail', status: 'In transit', priority: 'P3', etaH: 9, valueK: 76, riskScore: 21 },
     { id: 'SHP-2203', ref: 'PO-88437', origin: 'Duisburg', destId: 'FAC-04', mode: 'Road', status: 'In transit', priority: 'P2', etaH: 14, valueK: 158, riskScore: 34 },
@@ -52,6 +55,7 @@ export const INITIAL_SHIPMENTS = [
     { id: 'SHP-2211', ref: 'PO-88491', origin: 'Barcelona', destId: 'FAC-03', mode: 'Road', status: 'In transit', priority: 'P2', etaH: 12, valueK: 205, riskScore: 41 },
     { id: 'SHP-2212', ref: 'PO-88495', origin: 'Rotterdam', destId: 'FAC-05', mode: 'Road', status: 'In transit', priority: 'P1', etaH: 16, valueK: 310, riskScore: 49 },
 ];
+export const INITIAL_SHIPMENTS = SEED_SHIPMENTS.map(s => ({ ...s, riskScore: computeRisk(s) }));
 
 // Risk is a derived property, not an input — recomputed whenever a
 // shipment is created, edited or mutated by an action.

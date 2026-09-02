@@ -3,7 +3,7 @@
 // the top open alert gets a full "control tower" card with an AI-analyzing
 // shimmer, and the selected shipment's destination gets a pulse ring.
 // A layers panel in the left rail explains the encoding and toggles layers.
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Checkbox, Button } from '@blueprintjs/core';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -112,6 +112,9 @@ export default function MapView({ shipments, alerts, selectedId, onSelect, show 
     const hostRef = useRef(null);
     const mapRef = useRef(null);
     const layersRef = useRef(null);
+    // bumped on every pan/zoom end: the featured card's edge-flip and other
+    // container-position-dependent drawing must recompute for the new view
+    const [viewTick, setViewTick] = useState(0);
 
     // one-time map setup
     useEffect(() => {
@@ -139,11 +142,12 @@ export default function MapView({ shipments, alerts, selectedId, onSelect, show 
         // ambient country labels — quiet chrome, non-interactive
         MAP_LABELS.forEach(l => {
             L.marker(l.at, {
-                interactive: false, zIndexOffset: 50,
+                interactive: false, keyboard: false, zIndexOffset: 50,
                 icon: L.divIcon({ className: '', iconSize: null, iconAnchor: [30, 6], html: `<div class="map-country">${l.name}</div>` }),
             }).addTo(map);
         });
         map.fitBounds(EUROPE_BOUNDS, { padding: [10, 10] });
+        map.on('moveend zoomend', () => setViewTick(t => t + 1));
         layersRef.current = L.layerGroup().addTo(map);
         mapRef.current = map;
         // the pane mounts inside a grid — make sure Leaflet measures it right.
@@ -176,7 +180,9 @@ export default function MapView({ shipments, alerts, selectedId, onSelect, show 
             const dest = facilityById[s.destId];
             if (!rawFrom || !dest) return;
             const { point: from, clipped } = clampOrigin(rawFrom, [dest.lat, dest.lng]);
-            originStops[s.origin] = { point: from, clipped };
+            // key by entry point too: clipped routes from one far city can
+            // enter the frame at different edges depending on destination
+            originStops[s.origin + '@' + from.map(v => v.toFixed(2)).join(',')] = { city: s.origin, point: from, clipped };
             const isSel = s.id === selectedId;
             const c = riskColor(s.riskScore);
             const inMotion = s.status === 'In transit' || s.status === 'Delayed';
@@ -208,10 +214,10 @@ export default function MapView({ shipments, alerts, selectedId, onSelect, show 
                 wire(L.polyline([pos, [dest.lat, dest.lng]], { color: c, weight: w, opacity: isSel ? 0.8 : 0.55, dashArray: '5 9' }));
                 const chip = L.divIcon({
                     className: '',
-                    html: `<div class="map-chip${isSel ? ' map-chip--sel' : ''}" style="border-color:${c};color:${c}">${bpSvg(MODE_ICON[s.mode] || 'Truck', 11)}</div>`,
+                    html: `<div class="map-chip${isSel ? ' map-chip--sel' : ''}" title="${s.id} · ${s.mode}" style="border-color:${c};color:${c}">${bpSvg(MODE_ICON[s.mode] || 'Truck', 11)}</div>`,
                     iconSize: [22, 22], iconAnchor: [11, 11],
                 });
-                const dot = L.marker(pos, { icon: chip, zIndexOffset: isSel ? 400 : 300 });
+                const dot = L.marker(pos, { icon: chip, zIndexOffset: isSel ? 400 : 300, keyboard: false });
                 dot.bindTooltip(`${s.id} · ${s.mode} · ETA ${s.etaH}h`, { direction: 'top' });
                 dot.on('click', () => onSelect(s.id));
                 layers.addLayer(dot);
@@ -223,7 +229,7 @@ export default function MapView({ shipments, alerts, selectedId, onSelect, show 
         if (sel && facilityById[sel.destId]) {
             const d = facilityById[sel.destId];
             layers.addLayer(L.marker([d.lat, d.lng], {
-                interactive: false, zIndexOffset: 450,
+                interactive: false, keyboard: false, zIndexOffset: 450,
                 icon: L.divIcon({ className: '', iconSize: [44, 44], iconAnchor: [22, 22], html: '<div class="map-ring"></div>' }),
             }));
         }
@@ -235,19 +241,19 @@ export default function MapView({ shipments, alerts, selectedId, onSelect, show 
                 html: `<div class="map-fac">${bpSvg('Office', 11)}<span class="map-fac__name">${f.name}</span><span class="map-fac__cap">${f.capacityPct}%</span></div>`,
                 iconSize: null, iconAnchor: [10, 10],
             });
-            const m = L.marker([f.lat, f.lng], { icon, zIndexOffset: 500 });
+            const m = L.marker([f.lat, f.lng], { icon, zIndexOffset: 500, keyboard: false });
             m.bindTooltip(`${f.kind} · ${f.region} · ${f.capacityPct}% capacity`, { direction: 'bottom' });
             layers.addLayer(m);
         });
 
         // ---- origin city dots (deduped) — routes start somewhere visible ----
-        if (show.origins) Object.entries(originStops).forEach(([city, o]) => {
+        if (show.origins) Object.values(originStops).forEach(o => {
             const icon = L.divIcon({
                 className: '',
-                html: `<div class="map-origin"><span class="map-origin__dot"></span>${city}${o.clipped ? ' →' : ''}</div>`,
+                html: `<div class="map-origin"><span class="map-origin__dot"></span>${o.city}${o.clipped ? ' →' : ''}</div>`,
                 iconSize: null, iconAnchor: [4, 4],
             });
-            layers.addLayer(L.marker(o.point, { icon, zIndexOffset: 200, interactive: false }));
+            layers.addLayer(L.marker(o.point, { icon, zIndexOffset: 200, interactive: false, keyboard: false }));
         });
 
         // ---- alert callouts (unacked only) ----
@@ -289,7 +295,7 @@ export default function MapView({ shipments, alerts, selectedId, onSelect, show 
                     className: '', iconSize: null, iconAnchor: [anchorX, below ? 0 : 208],
                     html: `<div class="${wrapCls}">${inner}</div>`,
                 });
-                const m = L.marker([dest.lat, dest.lng], { icon, zIndexOffset: 1200 });
+                const m = L.marker([dest.lat, dest.lng], { icon, zIndexOffset: 10000, keyboard: false });
                 m.on('click', () => onSelect(s.id));
                 layers.addLayer(m);
             }
@@ -305,12 +311,12 @@ export default function MapView({ shipments, alerts, selectedId, onSelect, show 
                            </div>`,
                     iconSize: null, iconAnchor: [-14, 44 + (n - 1) * 34],
                 });
-                const m = L.marker([dest.lat, dest.lng], { icon, zIndexOffset: 1000 });
+                const m = L.marker([dest.lat, dest.lng], { icon, zIndexOffset: 1000, keyboard: false });
                 m.on('click', () => onSelect(s.id));
                 layers.addLayer(m);
             });
         }
-    }, [shipments, alerts, selectedId, onSelect, show, overlays]);
+    }, [shipments, alerts, selectedId, onSelect, show, overlays, viewTick]);
 
     return (
         <div className="map-outer">
