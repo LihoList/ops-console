@@ -75,3 +75,15 @@ export const STATUS_INTENT = {
 };
 
 export const SEVERITY_INTENT = { critical: 'danger', warning: 'warning', info: 'none' };
+
+// Ambient country labels for the map — chrome, not data.
+export const MAP_LABELS = [
+    { name: 'United Kingdom', at: [53.0, -1.8] }, { name: 'Ireland', at: [53.2, -8.1] },
+    { name: 'Portugal', at: [39.6, -8.0] }, { name: 'Spain', at: [40.0, -3.5] },
+    { name: 'France', at: [46.6, 2.4] }, { name: 'Germany', at: [50.9, 10.2] },
+    { name: 'Italy', at: [42.8, 12.5] }, { name: 'Poland', at: [52.2, 19.3] },
+    { name: 'Austria', at: [47.5, 14.4] }, { name: 'Czechia', at: [49.8, 15.4] },
+    { name: 'Hungary', at: [47.1, 19.4] }, { name: 'Romania', at: [45.9, 24.0] },
+    { name: 'Serbia', at: [44.2, 20.9] }, { name: 'Denmark', at: [56.0, 9.5] },
+    { name: 'Switzerland', at: [46.8, 8.2] },
+];

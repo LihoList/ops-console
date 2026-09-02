@@ -1,14 +1,14 @@
 // Network view — the same ontology, projected on a map. Facilities are pins,
-// shipments are routes colored by risk, unacked alerts float as callouts
-// anchored to their shipment's destination. Clicking anything selects the
-// object in the shared detail panel; actions there update the map live.
-// A layers panel on the left explains the encoding and toggles each layer.
+// shipments are routes colored by risk, unacked alerts float as callouts;
+// the top open alert gets a full "control tower" card with an AI-analyzing
+// shimmer, and the selected shipment's destination gets a pulse ring.
+// A layers panel in the left rail explains the encoding and toggles layers.
 import { useEffect, useRef } from 'react';
-import { Switch } from '@blueprintjs/core';
+import { Checkbox, Button } from '@blueprintjs/core';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { IconSvgPaths16 } from '@blueprintjs/icons';
-import { FACILITIES, ORIGIN_COORDS } from './data.js';
+import { FACILITIES, ORIGIN_COORDS, MAP_LABELS } from './data.js';
 import COUNTRIES from './assets/countries.json';
 
 const EUROPE_BOUNDS = L.latLngBounds([39.0, -6.5], [56.5, 20.5]);
@@ -48,29 +48,63 @@ const MODE_ICON = { Road: 'Truck', Rail: 'Train', Ocean: 'CargoShip' };
 export const DEFAULT_MAP_LAYERS = {
     routes: true, transit: true, facilities: true, alerts: true, origins: true,
 };
+export const DEFAULT_OVERLAYS = { temp: false, rain: false, wind: false, pop: false };
+
+// Decorative environmental overlays: hand-placed soft blobs, the way a
+// control tower layers weather over the network. [lat, lng, radius km]
+const OVERLAY_BLOBS = {
+    temp: { color: '#f59e0b', spots: [[40.4, -3.7, 260], [38.5, -1.0, 220], [41.9, 12.5, 240], [37.4, -5.9, 210], [43.6, 3.9, 180]] },
+    rain: { color: '#3b82f6', spots: [[54.5, -2.5, 240], [56.6, 4.0, 280], [53.3, -7.0, 210], [55.6, 10.0, 220]] },
+    wind: { color: '#22d3ee', spots: [[48.0, -8.0, 300], [51.5, -10.0, 260], [44.5, -8.5, 240]] },
+    pop:  { color: '#a78bfa', spots: [[51.5, -0.1, 120], [48.85, 2.35, 120], [52.5, 13.4, 110], [41.4, 2.2, 100], [45.46, 9.19, 100], [50.1, 8.7, 95], [52.23, 21.0, 100]] },
+};
+const OVERLAY_META = [
+    { key: 'temp', icon: 'temperature', label: 'Land surface temperature' },
+    { key: 'rain', icon: 'rain', label: 'Precipitation rate (daily)' },
+    { key: 'wind', icon: 'flash', label: 'Wind speed' },
+    { key: 'pop', icon: 'people', label: 'Population density' },
+];
 
 // Rendered in the left rail (next to the ontology) while the map is open.
-export function MapLayersPanel({ show, onToggle, shipments, alerts }) {
+export function MapLayersPanel({ show, onToggle, overlays, onToggleOverlay, shipments, alerts }) {
     const inMotion = shipments.filter(s => s.status === 'In transit' || s.status === 'Delayed').length;
     const openAlerts = alerts.filter(a => !a.acked).length;
+    const row = (key, label, count, swatch) => (
+        <div className="obj-row">
+            <Checkbox checked={show[key]} onChange={() => onToggle(key)}
+                labelElement={<span><span className={'obj-swatch ' + swatch} />{label}
+                    {count != null && <span className="dim"> ({count})</span>}</span>} />
+        </div>
+    );
     return (
         <div className="map-panel">
-            <div className="rail-title">MAP LAYERS</div>
-            <Switch checked={show.routes} onChange={() => onToggle('routes')}
-                labelElement={<span>Routes <span className="dim">({shipments.length})</span></span>} />
-            <Switch checked={show.transit} onChange={() => onToggle('transit')}
-                labelElement={<span>In motion <span className="dim">({inMotion})</span></span>} />
-            <Switch checked={show.facilities} onChange={() => onToggle('facilities')}
-                labelElement={<span>Facilities <span className="dim">({FACILITIES.length})</span></span>} />
-            <Switch checked={show.alerts} onChange={() => onToggle('alerts')}
-                labelElement={<span>Open alerts <span className="dim">({openAlerts})</span></span>} />
-            <Switch checked={show.origins} onChange={() => onToggle('origins')}
-                labelElement={<span>Origin cities</span>} />
+            <div className="panel-tabs">
+                <span className="panel-tab panel-tab--active">Legend</span>
+                <span className="panel-tab panel-tab--off" title="Not wired in this demo">Find</span>
+                <span className="panel-tab panel-tab--off" title="Not wired in this demo">Histogram</span>
+            </div>
+            <div className="rail-title">OBJECTS</div>
+            {row('routes', 'Deliveries — routes', shipments.length, 'obj-swatch--ramp')}
+            {row('transit', 'In motion', inMotion, 'obj-swatch--teal')}
+            {row('facilities', 'Facilities', FACILITIES.length, 'obj-swatch--violet')}
+            {row('alerts', 'Open alerts', openAlerts, 'obj-swatch--red')}
+            {row('origins', 'Origin cities', null, 'obj-swatch--grey')}
+
+            <div className="risk-ramp">
+                <div className="risk-ramp__bar" />
+                <div className="risk-ramp__scale"><span>0</span><span>Risk score</span><span>100</span></div>
+            </div>
+
+            <div className="rail-title">OVERLAYS</div>
+            {OVERLAY_META.map(o => (
+                <div key={o.key} className={'overlay-row' + (overlays[o.key] ? ' overlay-row--on' : '')}>
+                    <span className="overlay-row__label">{o.label}</span>
+                    <Button variant="minimal" size="small" icon={overlays[o.key] ? 'eye-open' : 'eye-off'}
+                        aria-label={`Toggle ${o.label}`} onClick={() => onToggleOverlay(o.key)} />
+                </div>
+            ))}
 
             <div className="rail-title">READING THE MAP</div>
-            <div className="legend-row"><span className="legend-line" style={{ background: '#34d399' }} /> Low risk route</div>
-            <div className="legend-row"><span className="legend-line" style={{ background: '#fbbf24' }} /> Medium risk</div>
-            <div className="legend-row"><span className="legend-line" style={{ background: '#f87171' }} /> High risk</div>
             <div className="legend-row"><span className="legend-duo"><span className="legend-duo__solid" /><span className="legend-duo__dash" /></span> Travelled · remaining</div>
             <div className="legend-row"><span className="legend-line legend-line--dash" /> Loading / delivered</div>
             <div className="legend-row"><span className="legend-line legend-line--thick" style={{ background: '#34d399' }} /> Selected shipment</div>
@@ -79,7 +113,7 @@ export function MapLayersPanel({ show, onToggle, shipments, alerts }) {
     );
 }
 
-export default function MapView({ shipments, alerts, selectedId, onSelect, show = DEFAULT_MAP_LAYERS }) {
+export default function MapView({ shipments, alerts, selectedId, onSelect, show = DEFAULT_MAP_LAYERS, overlays = DEFAULT_OVERLAYS }) {
     const hostRef = useRef(null);
     const mapRef = useRef(null);
     const layersRef = useRef(null);
@@ -103,10 +137,17 @@ export default function MapView({ shipments, alerts, selectedId, onSelect, show 
         // fully offline, and nothing to flash while zooming.
         L.geoJSON(COUNTRIES, {
             style: {
-                color: 'rgba(255,255,255,0.14)', weight: 1,
-                fillColor: '#161b22', fillOpacity: 1, interactive: false,
+                color: 'rgba(255,255,255,0.12)', weight: 1,
+                fillColor: '#1d1a24', fillOpacity: 1, interactive: false,
             },
         }).addTo(map);
+        // ambient country labels — quiet chrome, non-interactive
+        MAP_LABELS.forEach(l => {
+            L.marker(l.at, {
+                interactive: false, zIndexOffset: 50,
+                icon: L.divIcon({ className: '', iconSize: null, iconAnchor: [30, 6], html: `<div class="map-country">${l.name}</div>` }),
+            }).addTo(map);
+        });
         map.fitBounds(EUROPE_BOUNDS, { padding: [10, 10] });
         layersRef.current = L.layerGroup().addTo(map);
         mapRef.current = map;
@@ -121,6 +162,15 @@ export default function MapView({ shipments, alerts, selectedId, onSelect, show 
         if (!map || !layers) return;
         layers.clearLayers();
         const facilityById = Object.fromEntries(FACILITIES.map(f => [f.id, f]));
+
+        // ---- environmental overlays (below everything else) ----
+        Object.entries(OVERLAY_BLOBS).forEach(([key, cfg]) => {
+            if (!overlays[key]) return;
+            cfg.spots.forEach(([lat, lng, km]) => {
+                layers.addLayer(L.circle([lat, lng], { radius: km * 1000, stroke: false, fillColor: cfg.color, fillOpacity: 0.10, interactive: false }));
+                layers.addLayer(L.circle([lat, lng], { radius: km * 550, stroke: false, fillColor: cfg.color, fillOpacity: 0.08, interactive: false }));
+            });
+        });
 
         // ---- shipment routes ----
         const originStops = {};   // city -> clamped point, deduped across shipments
@@ -171,6 +221,16 @@ export default function MapView({ shipments, alerts, selectedId, onSelect, show 
             }
         });
 
+        // ---- selection pulse ring on the selected shipment's destination ----
+        const sel = shipments.find(s => s.id === selectedId);
+        if (sel && facilityById[sel.destId]) {
+            const d = facilityById[sel.destId];
+            layers.addLayer(L.marker([d.lat, d.lng], {
+                interactive: false, zIndexOffset: 450,
+                icon: L.divIcon({ className: '', iconSize: [44, 44], iconAnchor: [22, 22], html: '<div class="map-ring"></div>' }),
+            }));
+        }
+
         // ---- facility pins ----
         if (show.facilities) FACILITIES.forEach(f => {
             const icon = L.divIcon({
@@ -193,14 +253,43 @@ export default function MapView({ shipments, alerts, selectedId, onSelect, show 
             layers.addLayer(L.marker(o.point, { icon, zIndexOffset: 200, interactive: false }));
         });
 
-        // ---- alert callouts (unacked only), stacked per destination ----
+        // ---- alert callouts (unacked only) ----
         if (show.alerts) {
-            const stackAt = {};
-            alerts.filter(a => !a.acked).forEach(a => {
-                const s = shipments.find(x => x.id === a.shipmentId);
-                if (!s) return;                        // filtered out — no callout
+            const open = alerts.filter(a => !a.acked)
+                .map(a => ({ a, s: shipments.find(x => x.id === a.shipmentId) }))
+                .filter(x => x.s && facilityById[x.s.destId]);
+            // The top alert (critical first, then youngest) gets the full
+            // control-tower card with the AI-analyzing shimmer.
+            const rank = { critical: 0, warning: 1, info: 2 };
+            open.sort((x, y) => (rank[x.a.severity] - rank[y.a.severity]) || (x.a.ageH - y.a.ageH));
+            const featured = open[0];
+            if (featured) {
+                const { a, s } = featured;
                 const dest = facilityById[s.destId];
-                if (!dest) return;
+                const icon = L.divIcon({
+                    className: '', iconSize: null, iconAnchor: [12, 208],
+                    html: `<div class="ctl-wrap">
+                        <div class="ctl-alert">
+                            <div class="ctl-alert__head"><span class="ctl-alert__pin">${bpSvg('WarningSign', 10)}</span> NEW ALERT · ${a.kind}</div>
+                            <div class="ctl-alert__ai">${bpSvg('PredictiveAnalysis', 11)} AI analyzing<span class="ctl-dots"></span></div>
+                        </div>
+                        <div class="ctl-metrics">
+                            <div class="ctl-metrics__title">${bpSvg('Office', 10)} ${dest.name}</div>
+                            <div class="ctl-metrics__row"><span>Capacity</span><b>${dest.capacityPct}%</b></div>
+                            <div class="ctl-metrics__row"><span>Shipment</span><b>${s.id}</b></div>
+                            <div class="ctl-metrics__row"><span>Value at risk</span><b>$${s.valueK}k</b></div>
+                        </div>
+                        <div class="ctl-stem"></div>
+                    </div>`,
+                });
+                const m = L.marker([dest.lat, dest.lng], { icon, zIndexOffset: 1200 });
+                m.on('click', () => onSelect(s.id));
+                layers.addLayer(m);
+            }
+            // the rest stay as compact pills, stacked per destination
+            const stackAt = {};
+            open.slice(1).forEach(({ a, s }) => {
+                const dest = facilityById[s.destId];
                 const n = (stackAt[s.destId] = (stackAt[s.destId] || 0) + 1);
                 const icon = L.divIcon({
                     className: '',
@@ -214,7 +303,12 @@ export default function MapView({ shipments, alerts, selectedId, onSelect, show 
                 layers.addLayer(m);
             });
         }
-    }, [shipments, alerts, selectedId, onSelect, show]);
+    }, [shipments, alerts, selectedId, onSelect, show, overlays]);
 
-    return <div ref={hostRef} className="map-host" />;
+    return (
+        <div className="map-outer">
+            <div ref={hostRef} className="map-host" />
+            <div className="entity360">ENTITY 360</div>
+        </div>
+    );
 }

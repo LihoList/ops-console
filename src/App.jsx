@@ -12,9 +12,9 @@ import {
 import {
     OBJECT_TYPES, FACILITIES, INITIAL_ALERTS, INITIAL_SHIPMENTS,
     STATUS_INTENT, SEVERITY_INTENT,
-computeRisk, ORIGINS,
+    computeRisk, ORIGINS,
 } from './data.js';
-import MapView, { MapLayersPanel, DEFAULT_MAP_LAYERS } from './MapView.jsx';
+import MapView, { MapLayersPanel, DEFAULT_MAP_LAYERS, DEFAULT_OVERLAYS } from './MapView.jsx';
 
 // Toaster: created once, lazily (React 19-safe path is createAsync).
 let toasterPromise = null;
@@ -43,6 +43,21 @@ function randomShipmentFields() {
 }
 const EMPTY_FORM = { origin: 'Hamburg', destId: FACILITIES[0].id, mode: 'Road', status: 'Loading', priority: 'P2', etaH: 24, valueK: 100 };
 
+const VIEW_TABS = [
+    { key: 'map', icon: 'map', label: 'Network view' },
+    { key: 'table', icon: 'th', label: 'Table' },
+    { key: 'alerts', icon: 'warning-sign', label: 'Alerts' },
+    { key: 'tickets', icon: 'issue', label: 'Tickets' },
+    { key: 'proposals', icon: 'lightbulb', label: 'Proposals' },
+];
+
+const MAP_TOOLS = [
+    { key: 'select', icon: 'select', label: 'Select' },
+    { key: 'search-around', icon: 'search-around', label: 'Search around' },
+    { key: 'draw', icon: 'draw', label: 'Draw' },
+    { key: 'measure', icon: 'arrows-horizontal', label: 'Measure' },
+];
+
 export default function App() {
     const [shipments, setShipments] = useState(INITIAL_SHIPMENTS);
     const [alerts, setAlerts] = useState(INITIAL_ALERTS);
@@ -55,9 +70,12 @@ export default function App() {
     const [aboutOpen, setAboutOpen] = useState(false);
     // shipment form: null = closed, {mode:'create'|'edit', fields} = open
     const [form, setForm] = useState(null);
-    const [view, setView] = useState('table');   // 'table' | 'map'
+    const [view, setView] = useState('map');   // 'map' | 'table' | 'alerts' | 'tickets' | 'proposals'
+    const [tool, setTool] = useState('select'); // map toolbar (select is the live tool)
     const [mapShow, setMapShow] = useState(DEFAULT_MAP_LAYERS);
+    const [overlays, setOverlays] = useState(DEFAULT_OVERLAYS);
     const toggleMapLayer = (k) => setMapShow(m => ({ ...m, [k]: !m[k] }));
+    const toggleOverlay = (k) => setOverlays(o => ({ ...o, [k]: !o[k] }));
     const [log, setLog] = useState([
         { t: '08:02', text: 'Shift handover accepted (Operator)' },
     ]);
@@ -74,6 +92,13 @@ export default function App() {
         if (q && ![s.id, s.ref, s.origin, facilityById[s.destId]?.name].join(' ').toLowerCase().includes(q)) return false;
         return true;
     });
+
+    // ---- KPI ribbon numbers (all derived live from state) ----
+    const active = shipments.filter(s => s.status !== 'Delivered');
+    const late = active.filter(s => s.status === 'Delayed' || s.status === 'At customs').length;
+    const onTimePct = active.length ? Math.round(100 * (1 - late / active.length)) : 100;
+    const valueM = (active.reduce((m, s) => m + s.valueK, 0) / 1000).toFixed(1);
+    const inMotionCount = shipments.filter(s => s.status === 'In transit' || s.status === 'Delayed').length;
 
     function addLog(text) {
         setLog(l => [{ t: now(), text: `${text} (Operator)` }, ...l].slice(0, 8));
@@ -125,7 +150,7 @@ export default function App() {
             <Navbar>
                 <Navbar.Group align={Alignment.LEFT}>
                     <Icon icon="cargo-ship" size={18} style={{ marginRight: 10 }} />
-                    <Navbar.Heading><strong>Dispatch</strong> · ops console</Navbar.Heading>
+                    <Navbar.Heading><strong>Dispatch</strong> · supply chain control tower</Navbar.Heading>
                     <Navbar.Divider />
                     <Tag minimal intent={openAlertCount ? Intent.WARNING : Intent.NONE} icon="warning-sign">
                         {openAlertCount} open alerts
@@ -145,16 +170,52 @@ export default function App() {
                 </Navbar.Group>
             </Navbar>
 
+            {/* ---- KPI ribbon + view tabs (the control-tower header) ---- */}
+            <div className="kpis">
+                <div className="kpi">
+                    <div className="kpi__num">{onTimePct}%<span className="kpi__delta">▲ {active.length - late} of {active.length}</span></div>
+                    <div className="kpi__cap">On time, in full</div>
+                </div>
+                <div className="kpi">
+                    <div className="kpi__num">${valueM}M</div>
+                    <div className="kpi__cap">Value in motion <span className="dim">· {inMotionCount} moving</span></div>
+                </div>
+                <div className="kpi">
+                    <div className="kpi__num">{shipments.length}</div>
+                    <div className="kpi__cap">Deliveries <span className="dim">· {active.length} active</span></div>
+                </div>
+                <div className={'kpi kpi--card' + (openAlertCount ? ' kpi--hot' : '')}
+                    onClick={() => setView('alerts')} role="button" tabIndex={0}
+                    onKeyDown={e => e.key === 'Enter' && setView('alerts')}>
+                    <div className="kpi__num">{FACILITIES.length}</div>
+                    <div className="kpi__cap">Facilities <span className="kpi__hotnote">{openAlertCount} open alerts</span></div>
+                </div>
+                <div className="kpi">
+                    <div className="kpi__num">{ORIGINS.length}</div>
+                    <div className="kpi__cap">Origin cities <span className="dim">· 13 countries</span></div>
+                </div>
+                <div className="kpis__spacer" />
+                <div className="view-tabs">
+                    {VIEW_TABS.map(t => (
+                        <button key={t.key} type="button"
+                            className={'view-tab' + (view === t.key ? ' view-tab--active' : '')}
+                            onClick={() => setView(t.key)}>
+                            <Icon icon={t.icon} size={13} /> {t.label}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
             <div className="app-body">
                 {/* ---- Ontology rail ---- */}
                 <aside className="ontology">
                     <div className="rail-title">ONTOLOGY</div>
                     {OBJECT_TYPES.map(t => {
                         const count = t.key === 'shipment' ? shipments.length : t.key === 'facility' ? FACILITIES.length : alerts.length;
-                        const active = t.key === 'shipment';
+                        const active2 = t.key === 'shipment';
                         return (
-                            <Tooltip key={t.key} content={active ? t.description : `${t.description} — modeled; list view TBD`} placement="right">
-                                <Card interactive={active} className={'otype' + (active ? ' otype--active' : '')}>
+                            <Tooltip key={t.key} content={active2 ? t.description : `${t.description} — modeled; list view TBD`} placement="right">
+                                <Card interactive={active2} className={'otype' + (active2 ? ' otype--active' : '')}>
                                     <Icon icon={t.icon} />
                                     <span className="otype-label">{t.label}</span>
                                     <Tag minimal round>{count}</Tag>
@@ -171,28 +232,45 @@ export default function App() {
                         <>
                             <Divider style={{ margin: '14px 0' }} />
                             <MapLayersPanel show={mapShow} onToggle={toggleMapLayer}
+                                overlays={overlays} onToggleOverlay={toggleOverlay}
                                 shipments={shipments} alerts={alerts} />
                         </>
                     )}
                 </aside>
 
-                {/* ---- Object table ---- */}
+                {/* ---- Main pane: map / table / alerts / stubs ---- */}
                 <main className="table-pane">
                     <div className="filters">
-                        <ButtonGroup>
-                            <Button icon="th" text="Table" active={view === 'table'} onClick={() => setView('table')} />
-                            <Button icon="map" text="Network" active={view === 'map'} onClick={() => setView('map')} />
-                        </ButtonGroup>
-                        <Divider style={{ height: 20 }} />
-                        <HTMLSelect value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-                            options={['All', 'In transit', 'Delayed', 'At customs', 'Loading', 'Delivered']} />
-                        <HTMLSelect value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)}
-                            options={['All', 'P1', 'P2', 'P3']} />
-                        <span className="filters-count">{visible.length} of {shipments.length} shipments</span>
+                        {view === 'map' && (
+                            <>
+                                <ButtonGroup>
+                                    {MAP_TOOLS.map(t => (
+                                        <Tooltip key={t.key} content={t.key === 'select' ? 'Click objects on the map to inspect them' : 'Demo chrome — selection is the live tool'} placement="bottom">
+                                            <Button icon={t.icon} text={t.label} active={tool === t.key} onClick={() => setTool(t.key)} />
+                                        </Tooltip>
+                                    ))}
+                                </ButtonGroup>
+                                <Divider style={{ height: 20 }} />
+                            </>
+                        )}
+                        {(view === 'map' || view === 'table') && (
+                            <>
+                                <HTMLSelect value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+                                    options={['All', 'In transit', 'Delayed', 'At customs', 'Loading', 'Delivered']} />
+                                <HTMLSelect value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)}
+                                    options={['All', 'P1', 'P2', 'P3']} />
+                                <span className="filters-count">{visible.length} of {shipments.length} shipments</span>
+                            </>
+                        )}
+                        {view === 'alerts' && <span className="filters-count">{alerts.length} alerts · {openAlertCount} open</span>}
                     </div>
-                    {view === 'map' ? (
-                        <MapView shipments={visible} alerts={alerts} selectedId={selectedId} onSelect={setSelectedId} show={mapShow} />
-                    ) : visible.length === 0 ? (
+
+                    {view === 'map' && (
+                        <MapView shipments={visible} alerts={alerts} selectedId={selectedId}
+                            onSelect={setSelectedId} show={mapShow} overlays={overlays} />
+                    )}
+
+                    {view === 'table' && (visible.length === 0 ? (
                         <NonIdealState icon="search" title="No shipments match" description="Loosen the filters." />
                     ) : (
                         <HTMLTable interactive striped className="ship-table">
@@ -223,6 +301,34 @@ export default function App() {
                                 ))}
                             </tbody>
                         </HTMLTable>
+                    ))}
+
+                    {view === 'alerts' && (
+                        <div className="alerts-list">
+                            {alerts.map(a => {
+                                const s = shipments.find(x => x.id === a.shipmentId);
+                                return (
+                                    <Card key={a.id} interactive className={'linked-card alert-card' + (a.acked ? ' alert--acked' : '')}
+                                        onClick={() => { setSelectedId(a.shipmentId); }}>
+                                        <Tag minimal intent={SEVERITY_INTENT[a.severity]}>{a.severity}</Tag>
+                                        <div style={{ flex: 1 }}>
+                                            <div>{a.kind} <span className="dim">· {a.ageH}h ago{a.acked ? ' · acked' : ''}</span></div>
+                                            <div className="dim">{a.detail}</div>
+                                        </div>
+                                        <span className="mono dim">{a.shipmentId}{s ? ` · $${s.valueK}k` : ''}</span>
+                                    </Card>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    {view === 'tickets' && (
+                        <NonIdealState icon="issue" title="Tickets aren't wired in this demo"
+                            description="The tab shows the shape of the console; the live objects are shipments, facilities and alerts." />
+                    )}
+                    {view === 'proposals' && (
+                        <NonIdealState icon="lightbulb" title="Proposals aren't wired in this demo"
+                            description="In the real idiom this is where AI-suggested reallocations would queue for operator approval." />
                     )}
                 </main>
 
