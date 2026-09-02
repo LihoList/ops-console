@@ -5,7 +5,7 @@
 import { useMemo, useState } from 'react';
 import {
     Navbar, Alignment, InputGroup, Button, ButtonGroup, Tag, HTMLTable, Card,
-    Dialog, DialogBody, DialogFooter, HTMLSelect, ProgressBar, Icon, Tooltip,
+    Dialog, DialogBody, DialogFooter, HTMLSelect, ProgressBar, Icon,
     Divider, NonIdealState, OverlayToaster, Position, Intent,
     FormGroup, NumericInput,
 } from '@blueprintjs/core';
@@ -47,15 +47,6 @@ const VIEW_TABS = [
     { key: 'map', icon: 'map', label: 'Network view' },
     { key: 'table', icon: 'th', label: 'Table' },
     { key: 'alerts', icon: 'warning-sign', label: 'Alerts' },
-    { key: 'tickets', icon: 'issue', label: 'Tickets' },
-    { key: 'proposals', icon: 'lightbulb', label: 'Proposals' },
-];
-
-const MAP_TOOLS = [
-    { key: 'select', icon: 'select', label: 'Select' },
-    { key: 'search-around', icon: 'search-around', label: 'Search around' },
-    { key: 'draw', icon: 'draw', label: 'Draw' },
-    { key: 'measure', icon: 'arrows-horizontal', label: 'Measure' },
 ];
 
 export default function App() {
@@ -70,8 +61,7 @@ export default function App() {
     const [aboutOpen, setAboutOpen] = useState(false);
     // shipment form: null = closed, {mode:'create'|'edit', fields} = open
     const [form, setForm] = useState(null);
-    const [view, setView] = useState('map');   // 'map' | 'table' | 'alerts' | 'tickets' | 'proposals'
-    const [tool, setTool] = useState('select'); // map toolbar (select is the live tool)
+    const [view, setView] = useState('map');   // 'map' | 'table' | 'alerts'
     const [mapShow, setMapShow] = useState(DEFAULT_MAP_LAYERS);
     const [overlays, setOverlays] = useState(DEFAULT_OVERLAYS);
     const toggleMapLayer = (k) => setMapShow(m => ({ ...m, [k]: !m[k] }));
@@ -159,9 +149,8 @@ export default function App() {
                 <Navbar.Group align={Alignment.RIGHT}>
                     <Button intent={Intent.PRIMARY} icon="plus" text="New shipment"
                         onClick={() => setForm({ mode: 'create', fields: { ...EMPTY_FORM } })} />
-                    <Tooltip content="Create a shipment with randomized parameters" placement="bottom">
-                        <Button icon="random" style={{ marginLeft: 8 }} onClick={actRandomShipment} />
-                    </Tooltip>
+                    <Button icon="random" title="Create a shipment with randomized parameters"
+                        style={{ marginLeft: 8 }} onClick={actRandomShipment} />
                     <Navbar.Divider />
                     <InputGroup leftIcon="search" placeholder="Search shipments…" value={query}
                         onChange={e => setQuery(e.target.value)} style={{ width: 220 }} />
@@ -214,13 +203,11 @@ export default function App() {
                         const count = t.key === 'shipment' ? shipments.length : t.key === 'facility' ? FACILITIES.length : alerts.length;
                         const active2 = t.key === 'shipment';
                         return (
-                            <Tooltip key={t.key} content={active2 ? t.description : `${t.description} — modeled; list view TBD`} placement="right">
-                                <Card interactive={active2} className={'otype' + (active2 ? ' otype--active' : '')}>
-                                    <Icon icon={t.icon} />
-                                    <span className="otype-label">{t.label}</span>
-                                    <Tag minimal round>{count}</Tag>
-                                </Card>
-                            </Tooltip>
+                            <Card key={t.key} title={t.description} className={'otype' + (active2 ? ' otype--active' : '')}>
+                                <Icon icon={t.icon} />
+                                <span className="otype-label">{t.label}</span>
+                                <Tag minimal round>{count}</Tag>
+                            </Card>
                         );
                     })}
                     <Divider style={{ margin: '14px 0' }} />
@@ -241,18 +228,6 @@ export default function App() {
                 {/* ---- Main pane: map / table / alerts / stubs ---- */}
                 <main className="table-pane">
                     <div className="filters">
-                        {view === 'map' && (
-                            <>
-                                <ButtonGroup>
-                                    {MAP_TOOLS.map(t => (
-                                        <Tooltip key={t.key} content={t.key === 'select' ? 'Click objects on the map to inspect them' : 'Demo chrome — selection is the live tool'} placement="bottom">
-                                            <Button icon={t.icon} text={t.label} active={tool === t.key} onClick={() => setTool(t.key)} />
-                                        </Tooltip>
-                                    ))}
-                                </ButtonGroup>
-                                <Divider style={{ height: 20 }} />
-                            </>
-                        )}
                         {(view === 'map' || view === 'table') && (
                             <>
                                 <HTMLSelect value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
@@ -322,14 +297,6 @@ export default function App() {
                         </div>
                     )}
 
-                    {view === 'tickets' && (
-                        <NonIdealState icon="issue" title="Tickets aren't wired in this demo"
-                            description="The tab shows the shape of the console; the live objects are shipments, facilities and alerts." />
-                    )}
-                    {view === 'proposals' && (
-                        <NonIdealState icon="lightbulb" title="Proposals aren't wired in this demo"
-                            description="In the real idiom this is where AI-suggested reallocations would queue for operator approval." />
-                    )}
                 </main>
 
                 {/* ---- Object detail + actions ---- */}
@@ -378,7 +345,7 @@ export default function App() {
 
                             <div className="rail-title">ACTIONS</div>
                             <ButtonGroup fill vertical={false} className="actions-row">
-                                <Button icon="route" text="Reroute…" onClick={() => {
+                                <Button icon="route" text="Reroute…" disabled={selected.status === 'Delivered'} onClick={() => {
                                     // preselect the first facility that isn't the current destination —
                                     // stale state here made the select show one thing and submit another
                                     setRerouteDest(FACILITIES.find(f => f.id !== selected.destId).id);

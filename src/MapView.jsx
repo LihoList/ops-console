@@ -78,11 +78,6 @@ export function MapLayersPanel({ show, onToggle, overlays, onToggleOverlay, ship
     );
     return (
         <div className="map-panel">
-            <div className="panel-tabs">
-                <span className="panel-tab panel-tab--active">Legend</span>
-                <span className="panel-tab panel-tab--off" title="Not wired in this demo">Find</span>
-                <span className="panel-tab panel-tab--off" title="Not wired in this demo">Histogram</span>
-            </div>
             <div className="rail-title">OBJECTS</div>
             {row('routes', 'Deliveries — routes', shipments.length, 'obj-swatch--ramp')}
             {row('transit', 'In motion', inMotion, 'obj-swatch--teal')}
@@ -151,9 +146,11 @@ export default function MapView({ shipments, alerts, selectedId, onSelect, show 
         map.fitBounds(EUROPE_BOUNDS, { padding: [10, 10] });
         layersRef.current = L.layerGroup().addTo(map);
         mapRef.current = map;
-        // the pane mounts inside a grid — make sure Leaflet measures it right
-        setTimeout(() => map.invalidateSize(), 60);
-        return () => { map.remove(); mapRef.current = null; };
+        // the pane mounts inside a grid — make sure Leaflet measures it right.
+        // The timer MUST be cleared on unmount: leaving the map view within
+        // ~60ms (fast tab flips) otherwise fires invalidateSize on a removed map.
+        const sizeTimer = setTimeout(() => map.invalidateSize(), 60);
+        return () => { clearTimeout(sizeTimer); map.remove(); mapRef.current = null; };
     }, []);
 
     // redraw overlays whenever the data, selection or layer toggles change
@@ -308,7 +305,6 @@ export default function MapView({ shipments, alerts, selectedId, onSelect, show 
     return (
         <div className="map-outer">
             <div ref={hostRef} className="map-host" />
-            <div className="entity360">ENTITY 360</div>
         </div>
     );
 }
