@@ -263,21 +263,31 @@ export default function MapView({ shipments, alerts, selectedId, onSelect, show 
             if (featured) {
                 const { a, s } = featured;
                 const dest = facilityById[s.destId];
-                const icon = L.divIcon({
-                    className: '', iconSize: null, iconAnchor: [12, 208],
-                    html: `<div class="ctl-wrap">
-                        <div class="ctl-alert">
+                // Flip the card below/leftward when the anchor facility sits
+                // near the top or right edge, so it never clips off the map
+                // or collides with the zoom control.
+                const pt = map.latLngToContainerPoint([dest.lat, dest.lng]);
+                const below = pt.y < 240;
+                const leftward = pt.x > map.getSize().x - 260;
+                const wrapCls = 'ctl-wrap' + (below ? ' ctl-wrap--below' : '') + (leftward ? ' ctl-wrap--left' : '');
+                const anchorX = leftward ? 218 : 12;
+                const alertHtml = `<div class="ctl-alert">
                             <div class="ctl-alert__head"><span class="ctl-alert__pin">${bpSvg('WarningSign', 10)}</span> NEW ALERT · ${a.kind}</div>
                             <div class="ctl-alert__ai">${bpSvg('PredictiveAnalysis', 11)} AI analyzing<span class="ctl-dots"></span></div>
-                        </div>
-                        <div class="ctl-metrics">
+                        </div>`;
+                const metricsHtml = `<div class="ctl-metrics">
                             <div class="ctl-metrics__title">${bpSvg('Office', 10)} ${dest.name}</div>
                             <div class="ctl-metrics__row"><span>Capacity</span><b>${dest.capacityPct}%</b></div>
                             <div class="ctl-metrics__row"><span>Shipment</span><b>${s.id}</b></div>
                             <div class="ctl-metrics__row"><span>Value at risk</span><b>$${s.valueK}k</b></div>
-                        </div>
-                        <div class="ctl-stem"></div>
-                    </div>`,
+                        </div>`;
+                const stemHtml = '<div class="ctl-stem"></div>';
+                // reading order stays alert-first in both orientations: the stem
+                // just moves to whichever side touches the anchored facility
+                const inner = below ? stemHtml + alertHtml + metricsHtml : alertHtml + metricsHtml + stemHtml;
+                const icon = L.divIcon({
+                    className: '', iconSize: null, iconAnchor: [anchorX, below ? 0 : 208],
+                    html: `<div class="${wrapCls}">${inner}</div>`,
                 });
                 const m = L.marker([dest.lat, dest.lng], { icon, zIndexOffset: 1200 });
                 m.on('click', () => onSelect(s.id));
