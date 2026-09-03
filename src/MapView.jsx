@@ -90,15 +90,6 @@ export function MapLayersPanel({ show, onToggle, overlays, onToggleOverlay, ship
                 <div className="risk-ramp__scale"><span>0</span><span>Risk score</span><span>100</span></div>
             </div>
 
-            <div className="rail-title">OVERLAYS</div>
-            {OVERLAY_META.map(o => (
-                <div key={o.key} className={'overlay-row' + (overlays[o.key] ? ' overlay-row--on' : '')}>
-                    <span className="overlay-row__label">{o.label}</span>
-                    <Button variant="minimal" size="small" icon={overlays[o.key] ? 'eye-open' : 'eye-off'}
-                        aria-label={`Toggle ${o.label}`} onClick={() => onToggleOverlay(o.key)} />
-                </div>
-            ))}
-
             <div className="rail-title">READING THE MAP</div>
             <div className="legend-row"><span className="legend-duo"><span className="legend-duo__solid" /><span className="legend-duo__dash" /></span> Travelled · remaining</div>
             <div className="legend-row"><span className="legend-line legend-line--dash" /> Loading / delivered</div>
